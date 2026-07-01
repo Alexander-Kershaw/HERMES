@@ -1,0 +1,65 @@
+[project]
+name = "hermes"
+version = "0.1.0"
+description = "Portfolio project: retail lakehouse project using Azure Databricks, PySpark, Delta Lake, dbt, and streaming data pipelines."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Alexander Kershaw" }
+]
+dependencies = [
+    "pandas>=2.2.0",
+    "pyarrow>=16.0.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "pyyaml>=6.0.1",
+    "faker>=25.0.0",
+    "loguru>=0.7.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "ruff>=0.4.0",
+]
+
+spark = [
+    "pyspark>=3.5.0",
+    "delta-spark>=3.2.0",
+]
+
+streaming = [
+    "confluent-kafka>=2.4.0",
+]
+
+dbt = [
+    "dbt-core>=1.8.0",
+    "dbt-databricks>=1.8.0",
+]
+
+[build-system]
+requires = ["setuptools>=69.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "B",
+    "UP",
+]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
