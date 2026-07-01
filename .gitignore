@@ -1,0 +1,38 @@
+# MacOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+.venv/
+venv/
+env/
+ENV/
+*.venv/
+
+.conda/
+conda-meta/
+
+# Test / lint / coverage
+.pytest_cache/
+.ruff_cache/
+.mpy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+
+# Environment variables
+.env
+.env.*
+!.env.example
