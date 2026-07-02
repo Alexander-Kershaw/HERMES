@@ -133,3 +133,49 @@ The bronze layer writes parquet to provde a more efficient columnar formate befo
 Also, the raw source paths are being kept. The presence of the source metadata support data lineage, auditability, and important debugging. Keeping the source metadata and sources present will be helpful when bad records appear downstream, so it would be useful to identify the source of bad records. These malformed records will be intentionally injected as the project progresses.
 
 ---
+
+# Event-004: Silver Layer
+
+## Summary
+
+Added the first local Silver transformation layer using PySpark and Delta Lake.
+
+The pipeline reads Bronze Parquet tables, applies explicit schemas, deduplicates records by primary key, adds Silver metadata, and writes Delta tables locally.
+
+## Tables transformed
+
+- customers
+- stores
+- products
+- orders
+- order_items
+- inventory_snapshots
+- promotions
+
+## Design decision
+
+PySpark is used for Bronze to Silver transformations because this layer represents data engineering heavy processing.
+
+dbt will be introduced later for Silver to Gold modelling, where SQL business logic, documentation, and tests are more appropriate.
+
+## Trade offs
+
+### Explicit schemas vs inferred schemas
+
+Explicit schemas are more verbose but definitely safer as opposed to an infered schema.
+
+They make the expected shape of each table clear and reduce any nasty surprises when source files change.
+
+### Overwrite mode vs incremental mode
+
+The first version uses overwrite mode for simplicity.
+
+Incremental processing will be introduced later once data contracts, quality rules, and partition strategy are clearer and everything has taken more shape.
+
+### Local Delta before Azure Delta
+
+Local Delta provides the lakehouse table semantics before Azure Databricks is introduced.
+
+This keeps cloud cost low while preserving my architectural direction.
+
+---
