@@ -64,3 +64,29 @@ Synthetic data gives control over schema, volume, and business scenarios.
 Create the project tooling files, install development dependencies, run basic checks, and commit the foundation.
 
 ---
+
+# Event-001: Project Start
+
+## Date
+
+2026-07-02
+
+## Summary
+
+I completed an initial version of the batch source data generation.
+
+The first batch source files represent the proceeding elements of retail data:
+
+- customers
+- stores
+- products
+- orders
+- order items
+- product inventory snapshots
+- product promotions
+
+The generator uses controlled random seeds to make the local development repeatable and reproducible, and to initially limit the scope of complexity.
+
+This data is intially and intentionally generated locally before introducing Spark, Delta Lake, or Azure. This is to establish the underlying data engineering architecture and relationships first before using resources without solid design foundations.
+
+---

@@ -36,3 +36,21 @@ coverage.xml
 .env
 .env.*
 !.env.example
+
+# Data files
+data/
+!data/.gitkeep
+!data/sample/
+!data/sample/.gitkeep
+
+# some common large data formats
+*.csv
+*.tsv
+*.jsonl
+*.parquet
+*.avro
+*.orc
+*.delta
+*.db
+*.sqlite
+*.duckdb
