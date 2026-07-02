@@ -15,7 +15,6 @@ from hermes.utils.paths import raw_sample_data_dir
 
 @dataclass
 class DataGenerationConfig:
-
     num_customers: int = 1_000
     num_products: int = 250
     num_stores: int = 25
@@ -54,10 +53,9 @@ def generate_customers(config: DataGenerationConfig) -> pd.DataFrame:
                 "city": city,
                 "region": region,
                 "postal_code": fake.postcode(),
-                "loyalty_tier": random.choices(["Bronze", "Silver", "Gold", "Platinum"], 
-                                               weights=[0.5, 0.3, 0.15, 0.05], k=1)[0],
+                "loyalty_tier": random.choices(["Bronze", "Silver", "Gold", "Platinum"], weights=[0.5, 0.3, 0.15, 0.05], k=1)[0],
                 "creation_datetime": creation_datetime,
-                "is_active": random.choices([True, False], weights=[0.9, 0.1], k=1)[0]
+                "is_active": random.choices([True, False], weights=[0.9, 0.1], k=1)[0],
             }
         )
 
@@ -66,7 +64,7 @@ def generate_customers(config: DataGenerationConfig) -> pd.DataFrame:
 
 def generate_stores(config: DataGenerationConfig) -> pd.DataFrame:
 
-    fake = _fake(config.generation_seed + 1) # distinct seed for stores 
+    fake = _fake(config.generation_seed + 1)  # distinct seed for stores
 
     store_records = []
 
@@ -80,27 +78,20 @@ def generate_stores(config: DataGenerationConfig) -> pd.DataFrame:
                 "city": city,
                 "region": region,
                 "postal_code": fake.postcode(),
-                "store_format": random.choices(["convenience", "standard", "flagship", "warehouse"],
-                                                weights=[0.4, 0.4, 0.15, 0.05], k=1)[0],
+                "store_format": random.choices(["convenience", "standard", "flagship", "warehouse"], weights=[0.4, 0.4, 0.15, 0.05], k=1)[0],
                 "opening_date": fake.date_between(start_date="-15y", end_date="-90d"),
-                "is_active": random.choices([True, False], weights=[0.95, 0.05], k=1)[0]
+                "is_active": random.choices([True, False], weights=[0.95, 0.05], k=1)[0],
             }
-
         )
 
     return pd.DataFrame(store_records)
-    
 
 
 def generate_products(config: DataGenerationConfig) -> pd.DataFrame:
 
-    fake = _fake(config.generation_seed + 2) # Another distinct seed
+    fake = _fake(config.generation_seed + 2)  # Another distinct seed
 
-    category_pairings = [
-        (category, subcategory)
-        for category, subcategories in RETAIL_CATEGORIES.items()
-        for subcategory in subcategories
-    ]
+    category_pairings = [(category, subcategory) for category, subcategories in RETAIL_CATEGORIES.items() for subcategory in subcategories]
 
     product_records = []
 
@@ -115,16 +106,14 @@ def generate_products(config: DataGenerationConfig) -> pd.DataFrame:
                 "product_id": f"PRODUCT-{product_num:06d}",
                 "sku": f"SKU-{fake.unique.bothify(text='???-#####').upper()}",
                 "product_name": f"{fake.word().title()} {subcategory.title()} Item",
-                "category": category, 
+                "category": category,
                 "subcategory": subcategory,
                 "brand": fake.company(),
                 "unit_price": base_price,
                 "cost_price": cost_price,
                 "is_active": random.choices([True, False], weights=[0.95, 0.05], k=1)[0],
-                "creation_datetime": fake.date_time_between(start_date="-5y", end_date="-30d")
-
+                "creation_datetime": fake.date_time_between(start_date="-5y", end_date="-30d"),
             }
-
         )
 
     return pd.DataFrame(product_records)
@@ -135,21 +124,16 @@ def _random_datetime_between(start_time: str, end_time: str) -> datetime:
     return start_time + timedelta(seconds=random.randint(0, seconds))
 
 
-def generate_orders_w_items(
-    config: DataGenerationConfig,
-    customers_df: pd.DataFrame,
-    products_df: pd.DataFrame,
-    stores_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def generate_orders_w_items(config: DataGenerationConfig, customers_df: pd.DataFrame, products_df: pd.DataFrame, stores_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 
-    fake = _fake(config.generation_seed + 3) 
+    fake = _fake(config.generation_seed + 3)
 
     start_datetime = datetime.fromisoformat(config.start_date)
     end_datetime = datetime.fromisoformat(config.end_date) + timedelta(days=1) - timedelta(seconds=1)
 
     customer_ids = customers_df["customer_id"].tolist()
     store_ids = stores_df["store_id"].tolist()
-    product_records = products_df[
-        ["product_id", "unit_price", "cost_price", "category"]].to_dict(orient="records")
+    product_records = products_df[["product_id", "unit_price", "cost_price", "category"]].to_dict(orient="records")
 
     order_rows = []
     item_rows = []
@@ -159,12 +143,10 @@ def generate_orders_w_items(
         customer_id = random.choice(customer_ids)
         channel = random.choices(CHANNELS, weights=[0.6, 0.3, 0.1], k=1)[0]
         order_timestamp = _random_datetime_between(start_datetime, end_datetime)
-        store_id  = random.choice(store_ids) if channel == "store" else None
+        store_id = random.choice(store_ids) if channel == "store" else None
 
-        order_status = random.choices(ORDER_STATUSES, 
-                                      weights=[0.72, 0.20, 0.05, 0.03], k=1)[0]
-        item_count = random.choices([1, 2, 3, 4, 5], 
-                                    weights=[0.5, 0.3, 0.1, 0.07, 0.03], k=1)[0]
+        order_status = random.choices(ORDER_STATUSES, weights=[0.72, 0.20, 0.05, 0.03], k=1)[0]
+        item_count = random.choices([1, 2, 3, 4, 5], weights=[0.5, 0.3, 0.1, 0.07, 0.03], k=1)[0]
 
         order_gross_amount = 0.0
         order_discount_amount = 0.0
@@ -172,18 +154,16 @@ def generate_orders_w_items(
 
         for i in range(1, item_count + 1):
             product = random.choice(product_records)
-            quantity = random.choices([1, 2, 3 ,4],
-                                       weights=[0.7, 0.2, 0.08, 0.02], k=1)[0]
+            quantity = random.choices([1, 2, 3, 4], weights=[0.7, 0.2, 0.08, 0.02], k=1)[0]
 
             unit_price = float(product["unit_price"])
 
-            product_discount_rate = random.choices([0.0, 0.05, 0.10, 0.15],
-                                                   weights=[0.7, 0.2, 0.08, 0.02], k=1)[0]
+            product_discount_rate = random.choices([0.0, 0.05, 0.10, 0.15], weights=[0.7, 0.2, 0.08, 0.02], k=1)[0]
 
             gross_amount = round(unit_price * quantity, 2)
             discount_amount = round(gross_amount * product_discount_rate, 2)
             net_amount = round(gross_amount - discount_amount, 2)
-            tax_amount = round(net_amount * 0.2, 2) # tax assumed to be 20% VAT 
+            tax_amount = round(net_amount * 0.2, 2)  # tax assumed to be 20% VAT
 
             order_gross_amount += gross_amount
             order_discount_amount += discount_amount
@@ -200,9 +180,8 @@ def generate_orders_w_items(
                     "gross_amount": gross_amount,
                     "discount_amount": discount_amount,
                     "tax_amount": tax_amount,
-                    "net_amount": net_amount
+                    "net_amount": net_amount,
                 }
-
             )
 
         order_net_amount = round(order_gross_amount - order_discount_amount, 2)
@@ -220,25 +199,17 @@ def generate_orders_w_items(
                 "discount_amount": round(order_discount_amount, 2),
                 "tax_amount": round(order_tax_amount, 2),
                 "net_amount": order_net_amount,
-                "payment_method": random.choice(["credit_card", "debit_card", "paypal",
-                                                    "gift_card", "apple_pay", "google_pay"]), 
+                "payment_method": random.choice(["credit_card", "debit_card", "paypal", "gift_card", "apple_pay", "google_pay"]),
                 "created_by_system": random.choice(["ecommerce_platform", "pos_system", "mobile_app"]),
                 "source_file_date": order_timestamp.date(),
-                "customer_note": fake.sentence(nb_words=10) if random.random() < 0.1 else None
+                "customer_note": fake.sentence(nb_words=10) if random.random() < 0.1 else None,
             }
-
         )
 
     return pd.DataFrame(order_rows), pd.DataFrame(item_rows)
 
 
-
-def generate_product_inventory_snapshots(
-    config: DataGenerationConfig,
-    products_df: pd.DataFrame,
-    stores_df: pd.DataFrame
-) -> pd.DataFrame:
-
+def generate_product_inventory_snapshots(config: DataGenerationConfig, products_df: pd.DataFrame, stores_df: pd.DataFrame) -> pd.DataFrame:
 
     store_ids = stores_df["store_id"].tolist()
     product_ids = products_df["product_id"].tolist()
@@ -247,7 +218,6 @@ def generate_product_inventory_snapshots(
     inventory_snapshots = []
 
     for store_id in store_ids:
-
         product_sample = random.sample(product_ids, k=min(len(product_ids), 120))
 
         for product_id in product_sample:
@@ -267,17 +237,14 @@ def generate_product_inventory_snapshots(
                     "is_stockout": stock_on_hand == 0,
                     "is_below_reorder_point": stock_on_hand < reorder_point,
                 }
-
             )
 
     return pd.DataFrame(inventory_snapshots)
 
 
+def generate_product_promotions(config: DataGenerationConfig, products_df: pd.DataFrame) -> pd.DataFrame:
 
-def generate_product_promotions(config: DataGenerationConfig, 
-    products_df: pd.DataFrame) -> pd.DataFrame:
-
-    fake = _fake(config.generation_seed + 5) 
+    fake = _fake(config.generation_seed + 5)
 
     product_ids = products_df["product_id"].tolist()
     start_date = datetime.fromisoformat(config.start_date).date()
@@ -287,7 +254,6 @@ def generate_product_promotions(config: DataGenerationConfig,
     promotion_records = []
 
     for promotion_num in range(1, num_promotions + 1):
-        
         promotion_start = fake.date_between(start_date=start_date, end_date=end_date)
         promotion_end = promotion_start + timedelta(days=random.randint(3, 14))
 
@@ -300,17 +266,14 @@ def generate_product_promotions(config: DataGenerationConfig,
                 "start_date": promotion_start,
                 "end_date": promotion_end,
                 "channel": random.choice(["online", "store", "mobile_app"]),
-                "is_active": promotion_start <= end_date and promotion_end >= start_date
+                "is_active": promotion_start <= end_date and promotion_end >= start_date,
             }
-
         )
 
     return pd.DataFrame(promotion_records)
 
 
-
-def write_dataframes_to_csv(df: pd.DataFrame,
-    output_dir: Path, filename: str) -> Path:
+def write_dataframes_to_csv(df: pd.DataFrame, output_dir: Path, filename: str) -> Path:
 
     output_path = output_dir / f"{filename}.csv"
     df.to_csv(output_path, index=False)
@@ -339,7 +302,7 @@ def generate_all_synth_retail_data(config: DataGenerationConfig) -> dict[str, pd
         "orders": orders_df,
         "order_items": order_items_df,
         "inventory_snapshots": inventory_snapshots_df,
-        "promotions": promotions_df
+        "promotions": promotions_df,
     }
 
     for name, df in all_synth_data.items():
@@ -355,7 +318,6 @@ def main() -> None:
     config = DataGenerationConfig()
     generate_all_synth_retail_data(config)
 
+
 if __name__ == "__main__":
     main()
-
-
