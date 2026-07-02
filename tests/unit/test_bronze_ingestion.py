@@ -20,7 +20,7 @@ def test_ingest_source_to_bronze_adds_metadata(tmp_path: Path) -> None:
         source_name="customers",
         source_path=source_path,
         output_dir=output_dir,
-        file_format="parquet",
+        file_format="parquet"
     )
 
     bronze_df = pd.read_parquet(result.bronze_path)
@@ -47,7 +47,7 @@ def test_ingest_source_to_bronze_rejects_missing_file(tmp_path: Path) -> None:
         ingest_source_to_bronze_layer(
             source_name="missing",
             source_path=missing_source_path,
-            output_dir=output_dir,
+            output_dir=output_dir
         )
     except FileNotFoundError as exc:
         assert "Source file does not exist" in str(exc)

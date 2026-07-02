@@ -65,7 +65,7 @@ Create the project tooling files, install development dependencies, run basic ch
 
 ---
 
-# Event-001: Project Start
+# Event-002: Batch Source Data Generation
 
 ## Date
 
@@ -88,5 +88,48 @@ The first batch source files represent the proceeding elements of retail data:
 The generator uses controlled random seeds to make the local development repeatable and reproducible, and to initially limit the scope of complexity.
 
 This data is intially and intentionally generated locally before introducing Spark, Delta Lake, or Azure. This is to establish the underlying data engineering architecture and relationships first before using resources without solid design foundations.
+
+---
+
+# Event-003: Bronze Ingestion
+
+## Date
+
+2026-07-02
+
+## Summary
+
+I added a local bronze ingestion workflow. This pipeline reads the synthetic retail source data (as CSV files) and writes local bronze parquet outputs with accompanying ingestion metadata
+
+### Sources Ingested
+
+- customers
+- stores
+- products
+- orders
+- order_items
+- inventory_snapshots
+- promotions
+
+### Bronze metadata columns
+
+Each Bronze table includes:
+
+- _bronze_source_name
+- _bronze_source_file
+- _bronze_source_path
+- _bronze_ingested_datetime
+- _bronze_ingestion_date
+
+
+### Design Decisions
+
+The sources files remain as CSV to simulate typical legacy operational batch data extractions.
+
+The bronze layer writes parquet to provde a more efficient columnar formate before later introducing Delta Lake for the silver and gold layers.
+
+**Note:** Delta Lake is the ultimate target lakehouse format, but I did not want to introduce it instantaneously as the first ingestion step as this would force Spark into the project before confirmation that the source layer is stable. Therefore, parquet bronze is an appropriately pragmatic intermediate step before augmenting the complexity of this project.
+
+Also, the raw source paths are being kept. The presence of the source metadata support data lineage, auditability, and important debugging. Keeping the source metadata and sources present will be helpful when bad records appear downstream, so it would be useful to identify the source of bad records. These malformed records will be intentionally injected as the project progresses.
 
 ---
