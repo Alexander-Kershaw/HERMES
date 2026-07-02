@@ -1,3 +1,5 @@
+![banner](assets/hermes_banner.png)
+
 # HERMES
 
 **HERMES** is a data engineering project intended to simulate a cloud data modernisation initiative for a ficticious omnichannel retail organisation.
