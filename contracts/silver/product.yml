@@ -1,0 +1,43 @@
+table: products
+primary_key:
+  - product_id
+
+columns:
+  product_id:
+    type: string
+    rules:
+      - not_null
+      - unique
+      - regex: "^PRODUCT-[0-9]{6}$"
+
+  sku:
+    type: string
+    rules:
+      - not_null
+      - unique
+
+  category:
+    type: string
+    rules:
+      - not_null
+      - accepted_values:
+          - Grocery
+          - Electronics
+          - Clothing
+          - Home
+          - Health
+
+  unit_price:
+    type: double
+    rules:
+      - min_value: 0
+
+  cost_price:
+    type: double
+    rules:
+      - min_value: 0
+
+  is_active:
+    type: boolean
+    rules:
+      - not_null

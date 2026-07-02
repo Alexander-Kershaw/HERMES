@@ -21,6 +21,7 @@ dependencies = [
 hermes-generate-batch = "hermes.data_generation.generate_batch_sources:main"
 hermes-ingest-bronze = "hermes.ingestion.bronze_ingestion:main"
 hermes-transform-silver = "hermes.transforms.bronze_silver_transform:main"
+hermes-validation-silver = "hermes.quality.contract_validators:main"
 
 
 [project.optional-dependencies]

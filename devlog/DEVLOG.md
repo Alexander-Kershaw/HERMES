@@ -179,3 +179,65 @@ Local Delta provides the lakehouse table semantics before Azure Databricks is in
 This keeps cloud cost low while preserving my architectural direction.
 
 ---
+
+# Event-005: Silver Data Quality Contracts
+
+## Summary
+
+Added the first silver layer data quality validation framework.
+
+The framework uses YAML contracts to define expected rules for silver tables and PySpark to validate those rules against local Delta tables.
+
+## Rules implemented
+
+- not_null
+- unique
+- min_value
+- accepted_values
+- regex
+
+## Tables covered
+
+All of them:
+
+- customers
+- stores
+- products
+- orders
+- order_items
+- inventory_snapshots
+- promotions
+
+## Design decision
+
+A custom YAML in conjunction with PySpark validation framework was selected instead of immediately using Great Expectations or Soda.
+
+This keeps the framework transparent and easy to explain while still demonstrating governance, validation, and auditability.
+
+Great Expectations in particular is very likely to be implemented at a later date.
+
+## Trade offs
+
+### Custom framework
+
+Benefits:
+
+- simple
+- transparent
+- testable
+- easy to adapt
+
+Limitations:
+
+- fewer built-in features
+- more custom maintenance
+- not as mature as specialist data quality tools
+
+### Validation after Silver
+
+Validation currently runs after silver tables are written.
+
+Later versions may validate before writing trusted Silver outputs and send failed records to quarantine.
+
+---
+

@@ -1,0 +1,84 @@
+table: orders
+primary_key:
+  - order_id
+
+columns:
+  order_id:
+    type: string
+    rules:
+      - not_null
+      - unique
+      - regex: "^ORDER-[0-9]{8}$"
+
+  customer_id:
+    type: string
+    rules:
+      - not_null
+      - regex: "^CUSTOMER-[0-9]{6}$"
+
+  channel:
+    type: string
+    rules:
+      - not_null
+      - accepted_values:
+          - online
+          - store
+          - mobile_app
+
+  order_status:
+    type: string
+    rules:
+      - not_null
+      - accepted_values:
+          - confirmed
+          - fulfilled
+          - cancelled
+          - returned
+
+  payment_method:
+      type: string
+      rules:
+        - not_null
+        - accepted_values:
+            - credit_card
+            - debit_card
+            - paypal
+            - gift_card
+            - apple_pay
+            - google_pay
+
+  created_by_system:
+        type: stromg
+        rules:
+          - not_null
+          - accepted_values:
+              - ecommerce_platform
+              - pos_system
+              - mobile_app
+
+  currency:
+    type: string
+    rules:
+      - not_null
+      - accepted_values:
+          - GBP
+
+  gross_amount:
+    type: double
+    rules:
+      - min_value: 0
+
+  discount_amount:
+    type: double
+    rules:
+      - min_value: 0
+
+  net_amount:
+    type: double
+    rules:
+      - min_value: 0
+
+  tax_amount:
+    type: double
+    rules:
+      - min_value: 0

@@ -69,9 +69,9 @@ def test_transform_customers_bronze_to_silver(tmp_path: Path) -> None:
 
 
 def test_deduplicate_keeps_latest_record() -> None:
-    
+
     spark = create_local_spark_session(name="Test deduplication logic removes oldest duplicate")
-    
+
     df = spark.createDataFrame(
         [
             ("C001", "Alex", "2023-01-01 10:00:00"),

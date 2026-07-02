@@ -1,0 +1,37 @@
+table: inventory_snapshots
+primary_key:
+  - inventory_snapshot_id
+
+columns:
+  inventory_snapshot_id:
+    type: string
+    rules:
+      - not_null
+      - unique
+
+  store_id:
+    type: string
+    rules:
+      - not_null
+      - regex: "^STORE-[0-9]{4}$"
+
+  product_id:
+    type: string
+    rules:
+      - not_null
+      - regex: "^PRODUCT-[0-9]{6}$"
+
+  stock_on_hand:
+    type: integer
+    rules:
+      - min_value: 0
+
+  reorder_point:
+    type: integer
+    rules:
+      - min_value: 0
+
+  reorder_quantity:
+    type: integer
+    rules:
+      - min_value: 1
