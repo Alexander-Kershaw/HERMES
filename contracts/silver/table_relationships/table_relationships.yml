@@ -1,0 +1,36 @@
+relationships:
+  - name: orders_customer_foreign_key
+    child_table: orders
+    child_column: customer_id
+    parent_table: customers
+    parent_column: customer_id
+
+  - name: order_items_order_foreign_key
+    child_table: order_items
+    child_column: order_id
+    parent_table: orders
+    parent_column: order_id
+
+  - name: order_items_product_foreign_key
+    child_table: order_items
+    child_column: product_id
+    parent_table: products
+    parent_column: product_id
+
+  - name: inventory_store_foreign_key
+    child_table: inventory_snapshots
+    child_column: store_id
+    parent_table: stores
+    parent_column: store_id
+
+  - name: inventory_product_foreign_key
+    child_table: inventory_snapshots
+    child_column: product_id
+    parent_table: products
+    parent_column: product_id
+
+  - name: promotions_product_foreign_key
+    child_table: promotions
+    child_column: product_id
+    parent_table: products
+    parent_column: product_id

@@ -88,3 +88,31 @@ However, I am prioritising custom validation using YAML contracts and PySpark va
 - still directly alighned with the current project architecture and scope
 - sufficient for initial development
 
+## Relationship validation
+
+I also added validation for table relationships in the silver layer.
+
+Relationship contracts are stored in:
+
+```text
+contracts/silver/table_relationships/table_relationships.yml
+```
+
+Current relationship checks I've implemented include:
+
+- `orders.customer_id` must exist in `customers.customer_id`
+- `order_items.order_id` must exist in `orders.order_id`
+- `order_items.product_id` must exist in `products.product_id`
+- `inventory_snapshots.store_id` must exist in `stores.store_id`
+- `inventory_snapshots.product_id` must exist in `products.product_id`
+- `promotions.product_id` must exist in `products.product_id`
+
+Relationship validation uses Spark left anti joins to identify orphan keys.
+
+The validation script also writes a table relationship report to:
+
+```text
+data/audit/silver_relationship_validation_report.csv
+```
+
+---

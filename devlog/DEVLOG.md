@@ -241,3 +241,39 @@ Later versions may validate before writing trusted Silver outputs and send faile
 
 ---
 
+# Event-006: Silver Table Relationship Validation
+
+## Summary
+
+I added relationship validation for silver tables.
+
+The validation framework now checks that child table keys (foreign keys) exist in parent tables.
+
+## Relationships checked
+
+- `orders.customer_id` and `customers.customer_id`
+- `order_items.order_id` and `orders.order_id`
+- `order_items.product_id` and `products.product_id`
+- `inventory_snapshots.store_id` and `stores.store_id`
+- `inventory_snapshots.product_id` and `products.product_id`
+- `promotions.product_id` and `products.product_id`
+
+## Design decision
+
+Relationship checks are stored separately from the column rule table contracts.
+
+Column rule contracts describe rules within a table. Whereas, relationship contracts describe integrity rules between tables.
+
+## Implementation detail
+
+Relationship validation uses Spark left anti joins to find orphan key (keys without a corresponding key counterpart in another table that it is being validated against).
+
+## Trade Off
+
+The current implementation reports relationship failures but does not yet quarantine offending records.
+
+So, quarantine handling will be added next.
+
+---
+
+

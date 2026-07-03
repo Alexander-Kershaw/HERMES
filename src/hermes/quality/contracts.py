@@ -19,6 +19,21 @@ class HermesDataContract:
     contract_path: Path
 
 
+@dataclass(frozen=True)
+class HermesRelationshipsContract:
+    """
+
+    Relationship data contract between two tables in the silver layer
+
+    """
+
+    table_relationship_name: str
+    child_table: str
+    child_column: str
+    parent_table: str
+    parent_column: str
+
+
 def load_yaml_contract(contract_path: Path) -> HermesDataContract:
     """
 
@@ -54,3 +69,26 @@ def load_all_yaml_contracts(contracts_dir: Path) -> dict[str, HermesDataContract
         all_data_contracts[contract.table] = contract
 
     return all_data_contracts
+
+
+def load_table_relationship_yaml_contract(relation_contract_path: Path) -> list[HermesRelationshipsContract]:
+    if not relation_contract_path.exists():
+        raise FileNotFoundError(f"Table relationship contract yaml file not found: {relation_contract_path}")
+
+    with relation_contract_path.open("r", encoding="utf-8") as relation_contract_file:
+        relation_contract = yaml.safe_load(relation_contract_file)
+
+    table_relationships = relation_contract.get("relationships", [])
+
+    table_relationship_obj = [
+        HermesRelationshipsContract(
+            table_relationship_name=table_relationship["table_relationship_name"],
+            child_table=table_relationship["child_table"],
+            child_column=table_relationship["child_column"],
+            parent_table=table_relationship["parent_table"],
+            parent_column=table_relationship["parent_column"],
+        )
+        for table_relationship in table_relationships
+    ]
+
+    return table_relationship_obj

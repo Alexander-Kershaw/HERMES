@@ -30,7 +30,9 @@ columns:
           - bronze
           - silver
           - gold
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
     contract = load_yaml_contract(contract_path)
 
@@ -71,7 +73,9 @@ columns:
           - bronze
           - silver
           - gold
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
     contract = load_yaml_contract(contract_path)
 
@@ -109,7 +113,9 @@ columns:
     type: string
     rules:
       - not_null
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
     contract = load_yaml_contract(contract_path)
 
