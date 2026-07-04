@@ -156,3 +156,15 @@ Deliverables:
 - interview notes
 - lessons learned
 
+
+---
+
+## Delivery strategy update
+
+I've decided to restructure to project to prioritise full batch deployment first.
+
+The batch retail lakehouse will be completed locally and then deployed to Azure before any streaming is introduced.
+
+This enables me to be confident in the foundations first and the transiation from local development to Azure, before extending to event processing.
+
+---
