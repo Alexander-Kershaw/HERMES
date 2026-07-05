@@ -25,7 +25,7 @@ columns:
           - store
           - mobile_app
 
-  order_status:
+  status:
     type: string
     rules:
       - not_null

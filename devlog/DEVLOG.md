@@ -314,3 +314,15 @@ The table relation level quarantine will require different logic since the faile
 
 ---
 
+# Event-008: Naming Mismatch Corrections
+
+## Calibration note
+
+Initial quarantine testing exposed naming mismatches between generated source fields and contract expectations, which caused excessive quarantine output.
+
+The contracts and generator were corrected so that Silver validation now passes successfully with no quarantine incidents, allowing a smoother transition to dbt gold layer modelling next.
+
+This confirmed that the quarantine mechanism works, but also highlighted the need to distinguish genuine data quality failures from contract calibration issues.
+
+---
+

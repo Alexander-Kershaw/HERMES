@@ -137,3 +137,16 @@ For each quarantined record, there are additional quarantine metadata columns:
 - `_quarantine_created_date`
 
 
+---
+
+## Contract calibration
+
+Data contracts require calibration against the actual source and Silver schemas.
+
+During implementation, naming mismatches caused excessive quarantine output where entire tables were being quarantined. These were corrected before extending the validation framework.
+
+This was an important catch and is an example of not every validation failure indicates bad source data. Some failures indicate that the contract definition, generated data, or transformation schema is misaligned.
+
+---
+
+

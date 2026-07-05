@@ -10,6 +10,26 @@ columns:
       - unique
       - regex: "^STORE-[0-9]{4}$"
 
+  store_name:
+    type: string
+    rules:
+      - not_null
+
+  city:
+    type: string
+    rules:
+      - not_null
+
+  region:
+    type: string
+    rules:
+      - not_null
+
+  opening_date:
+    type: date
+    rules:
+      - not_null
+
   store_format:
     type: string
     rules:
@@ -22,5 +42,10 @@ columns:
 
   is_active:
     type: boolean
+    rules:
+      - not_null
+
+  postal_code:
+    type: string
     rules:
       - not_null

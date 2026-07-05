@@ -47,6 +47,11 @@ columns:
     rules:
       - not_null
 
+  address:
+    type: string
+    rules:
+      - not_null
+
   loyalty_tier:
     type: string
     rules:

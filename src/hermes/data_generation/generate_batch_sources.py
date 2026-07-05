@@ -53,6 +53,7 @@ def generate_customers(config: DataGenerationConfig) -> pd.DataFrame:
                 "city": city,
                 "region": region,
                 "postal_code": fake.postcode(),
+                "address": fake.address(),
                 "loyalty_tier": random.choices(["Bronze", "Silver", "Gold", "Platinum"], weights=[0.5, 0.3, 0.15, 0.05], k=1)[0],
                 "creation_datetime": creation_datetime,
                 "is_active": random.choices([True, False], weights=[0.9, 0.1], k=1)[0],
