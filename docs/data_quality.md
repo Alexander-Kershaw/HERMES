@@ -116,3 +116,24 @@ data/audit/silver_relationship_validation_report.csv
 ```
 
 ---
+
+## Quarantine handling
+
+I have implemented a local quarantine mechanism for failed silver validation records.
+
+When a column level validation check fails, the offending records are written to:
+
+```text
+data/quarantine/silver/<table_name>/<rule_name>_<column_name>.parquet
+```
+
+For each quarantined record, there are additional quarantine metadata columns:
+
+- `_quarantine_table_name`
+- `_quarantine_column_name`
+- `_quarantine_rule_name`
+- `_quarantine_failed_reason`
+- `_quarantine_created_at`
+- `_quarantine_created_date`
+
+

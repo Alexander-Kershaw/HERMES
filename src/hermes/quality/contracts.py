@@ -82,7 +82,7 @@ def load_table_relationship_yaml_contract(relation_contract_path: Path) -> list[
 
     table_relationship_obj = [
         HermesRelationshipsContract(
-            table_relationship_name=table_relationship["table_relationship_name"],
+            table_relationship_name=table_relationship["name"],
             child_table=table_relationship["child_table"],
             child_column=table_relationship["child_column"],
             parent_table=table_relationship["parent_table"],

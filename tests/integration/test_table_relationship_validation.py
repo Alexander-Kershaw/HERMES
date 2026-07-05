@@ -11,7 +11,7 @@ def test_load_relationship_contracts(tmp_path: Path) -> None:
     relationship_path.write_text(
         """
 relationships:
-  - table_relationship_name: orders_customer_fk
+  - name: orders_customer_fk
     child_table: orders
     child_column: customer_id
     parent_table: customers
@@ -48,7 +48,7 @@ def test_validate_relationship_passes_for_valid_keys() -> None:
     relationship = load_relationship_contracts_from_text(
         """
 relationships:
-  - table_relationship_name: orders_customer_fk
+  - name: orders_customer_fk
     child_table: orders
     child_column: customer_id
     parent_table: customers
@@ -89,7 +89,7 @@ def test_validate_relationship_fails_for_orphan_keys() -> None:
     relationship = load_relationship_contracts_from_text(
         """
 relationships:
-  - table_relationship_name: orders_customer_fk
+  - name: orders_customer_fk
     child_table: orders
     child_column: customer_id
     parent_table: customers

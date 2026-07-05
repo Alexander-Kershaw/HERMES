@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession
 
-from hermes.quality.contract_validators import validate_table, write_validation_report
+from hermes.quality.contract_validators import failed_records_for_column_rules, validate_table, write_validation_report
 from hermes.quality.contracts import load_yaml_contract
 from hermes.utils.spark import create_local_spark_session
 
@@ -163,5 +163,41 @@ columns:
 
     assert any(not result.passed for result in results)
     assert any(result.rule_name == "accepted_values" for result in results)
+
+    spark.stop()
+
+
+def test_failied_records_for_accepted_values() -> None:
+    spark = create_local_spark_session("testing_failed_records_for_accepted_values")
+
+    df = spark.createDataFrame([{"channel": "online"}, {"channel": "store"}, {"channel": "came to me in a dream"}])
+
+    failed_validation_records = failed_records_for_column_rules(df=df, column_name="channel", rule_name="accepted_values", rule_config=["online", "store", "mobile_app"])
+
+    assert failed_validation_records.count() == 1
+    assert failed_validation_records.collect()[0]["channel"] == "came to me in a dream"
+
+    spark.stop()
+
+
+def test_get_failed_records_for_unique() -> None:
+    spark = create_local_spark_session("test_get_failed_records_for_unique")
+
+    df = spark.createDataFrame(
+        [
+            {"order_id": "ORDER-00000001"},
+            {"order_id": "ORDER-00000001"},
+            {"order_id": "ORDER-00000002"},
+        ]
+    )
+
+    failed_records = failed_records_for_column_rules(
+        df=df,
+        column_name="order_id",
+        rule_name="unique",
+        rule_config=None,
+    )
+
+    assert failed_records.count() == 2
 
     spark.stop()

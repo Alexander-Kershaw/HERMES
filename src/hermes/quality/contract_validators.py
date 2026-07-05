@@ -7,6 +7,7 @@ from loguru import logger
 from pyspark.sql import DataFrame, SparkSession, functions
 
 from hermes.quality.contracts import HermesDataContract, HermesRelationshipsContract, load_all_yaml_contracts, load_table_relationship_yaml_contract
+from hermes.quality.data_quarantine import HermesQuarantineResult, write_failed_record_to_quarantine
 from hermes.utils.logging import config_logging
 from hermes.utils.paths import hermes_data_audit_dir, hermes_silver_dir
 from hermes.utils.spark import create_local_spark_session
@@ -209,6 +210,8 @@ def validate_silver_tables(
         table_results = validate_table(df, contract)
         all_results.extend(table_results)
 
+        quarantine_table_validation_failures(df=df, data_contract=contract, validation_results=table_results)
+
     write_validation_report(all_results, report_dir)
 
     failed_results = [result for result in all_results if not result.passed]
@@ -337,6 +340,78 @@ def validate_silver_table_relationships(
     return silver_validation_results
 
 
+def failed_records_for_column_rules(df: DataFrame, column_name: str, rule_name: str, rule_config) -> DataFrame:
+
+    if column_name not in df.columns:
+        return df
+
+    if rule_name == "not_null":
+        return df.filter(functions.col(column_name).isNull())
+
+    if rule_name == "unique":
+        duplicate_keys = df.groupBy(column_name).count().filter((functions.col("count") > 1) & functions.col(column_name).isNotNull()).select(column_name)
+        return df.join(duplicate_keys, on=column_name, how="inner")
+
+    if rule_name == "min_value":
+        return df.filter(functions.col(column_name) < functions.lit(rule_config))
+
+    if rule_name == "accepted_values":
+        return df.filter(functions.col(column_name).isNotNull() & ~functions.col(column_name).isin(rule_config))
+
+    if rule_name == "regex":
+        return df.filter(functions.col(column_name).isNotNull() & ~functions(column_name).rlike(rule_config))
+
+    raise ValueError(f"Unsupported validation rule used for quarantine: {rule_name}")
+
+
+def quarantine_table_validation_failures(
+    df: DataFrame, data_contract: HermesDataContract, validation_results: list[ContractValidationResult], quarantine_base_dir: Path | None = None
+) -> list[HermesQuarantineResult]:
+
+    quarantine_results = []
+
+    failed_validation_results = [result for result in validation_results if not result.passed]
+
+    if not failed_validation_results:
+        return quarantine_results
+
+    for result in failed_validation_results:
+        column_config = data_contract.columns.get(result.column_name, {})
+
+        if not isinstance(column_config, dict):
+            logger.warning(f"No valid column config found for {data_contract.table}.{result.column_name} Column config expected to be dict type")
+            continue
+
+        matching_rule = None
+        normalized_rule_config = None
+
+        for rule in column_config.get("rules", []):
+            rule_name, rule_config = _normalise_contract_rule(rule=rule)
+            if rule_name == result.rule_name:
+                matching_rule = rule_name
+                normalized_rule_config = rule_config
+                break
+
+        if matching_rule is None:
+            logger.warning(f"No matching rule config found for {data_contract.table}.{result.column_name}.{result.rule_name}")
+            continue
+
+        failed_records = failed_records_for_column_rules(df=df, column_name=result.column_name, rule_name=matching_rule, rule_config=normalized_rule_config)
+
+        quarantine_result = write_failed_record_to_quarantine(
+            failed_records=failed_records,
+            table_name=data_contract.table,
+            column_name=result.column_name,
+            rule_name=result.rule_name,
+            failure_reason=result.details,
+            base_quarantine_dir=quarantine_base_dir,
+        )
+
+        quarantine_results.append(quarantine_result)
+
+    return quarantine_results
+
+
 def main() -> None:
     column_validation_results = validate_silver_tables()
     silver_relationship_results = validate_silver_table_relationships()
@@ -346,8 +421,8 @@ def main() -> None:
 
     if failed_column_val_results or failed_relationship_val_results:
         raise SystemExit(
-            "=====| SILVER VALIDATION FAILED |====="
-            f"\nNumber of column validation checks failed: {len(failed_column_val_results)}"
+            "=====| SILVER VALIDATION FAILED |===== "
+            f"\nNumber of column validation checks failed: {len(failed_column_val_results)} "
             f"\nNumber of silver table relationship checks failed: {len(failed_relationship_val_results)}"
         )
 

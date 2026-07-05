@@ -276,4 +276,41 @@ So, quarantine handling will be added next.
 
 ---
 
+# Event-007: Quarantine Handling
+
+## Summary
+
+Added the first local quarantine mechanism for failed silver validation records.
+
+The quarantine layer captures records that fail column level validation checks and writes them to local Parquet files for inspection.
+
+## Quarantine output
+
+Failed records are written under:
+
+```text
+data/quarantine/silver/<table_name>/<rule_name>_<column_name>.parquet
+```
+
+For each quarantined record, there are additional quarantine metadata columns:
+
+- `_quarantine_table_name`
+- `_quarantine_column_name`
+- `_quarantine_rule_name`
+- `_quarantine_failed_reason`
+- `_quarantine_created_at`
+- `_quarantine_created_date`
+
+
+## Design Choice
+
+I have implemented quarantine after validation rather than embedded direction within the silver transformation logic at this time. This keeps the incremental development simple while allowing validation failures to be inspected and audited as required.
+
+## Trade Offs
+
+This first quarantine implementation only deals with column level validation rule failures as of now. 
+
+The table relation level quarantine will require different logic since the failed records are dependant on cross table ophan key checks
+
+---
 
