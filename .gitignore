@@ -67,6 +67,7 @@ dbt_hermes/target/
 dbt_hermes/dbt_packages/
 dbt_hermes/logs/
 dbt_hermes/profiles.yml
+dbt_hermes/.user.yml
 
 # spark / delta
 spark-warehouse/
