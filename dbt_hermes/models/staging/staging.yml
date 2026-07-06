@@ -11,7 +11,8 @@ models:
       - name: loyalty_tier
         tests:
           - accepted_values:
-              values: ["bronze", "silver", "gold", "platinum"]
+              arguments:
+                values: ["Bronze", "Silver", "Gold", "Platinum"]
       - name: first_name
         tests:
           - not_null
@@ -21,7 +22,9 @@ models:
       - name: email
         tests:
           - not_null
-          - regex: "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
       - name: phone_number
         tests:
           - not_null
@@ -42,7 +45,7 @@ models:
           - not_null
       - name: is_active
         tests:
-          not_null
+          - not_null
 
 
   - name: stg_stores
@@ -55,7 +58,8 @@ models:
       - name: store_format
         tests:
           - accepted_values:
-              values: ["convenience", "standard", "flagship", "warehouse"]
+              arguments:
+                values: ["convenience", "standard", "flagship", "warehouse"]
       - name: store_name
         tests:
           - not_null
@@ -83,23 +87,32 @@ models:
         tests:
           - not_null
           - unique
-          - regex: "^PRODUCT-[0-9]{6}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^PRODUCT-[0-9]{6}$"
       - name: category
         tests:
           - accepted_values:
-              values: ["Grocery", "Electronics", "Clothing", "Home", "Health"]
+              arguments:
+                values: ["Grocery", "Electronics", "Clothing", "Home", "Health"]
       - name: sku
         tests:
           - not_null
           - unique
       - name: unit_price
         tests:
-          - min_value: 0
           - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
       - name: cost_price
         tests:
-          - min_value: 0
           - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
       - name: is_active
         tests:
           - not_null
@@ -115,37 +128,45 @@ models:
         tests:
           - not_null
           - unique
-          - regex: "^ORDER-[0-9]{8}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^ORDER-[0-9]{8}$"
       - name: customer_id
         tests:
           - not_null
           - relationships:
-              to: ref('stg_customers')
-              field: customer_id
+              arguments:
+                to: ref('stg_customers')
+                field: customer_id
       - name: channel
         tests:
           - accepted_values:
-              values: ["online", "store", "mobile_app"]
+              arguments:
+                values: ["online", "store", "mobile_app"]
       - name: status
         tests:
           - not_null
           - accepted_values:
-              values: ["confirmed", "fulfilled", "cancelled", "returned"]
+              arguments:
+                values: ["confirmed", "fulfilled", "cancelled", "returned"]
       - name: payment_method
         tests:
           - not_null
           - accepted_values:
-              values: ["credit_card", "debit_card", "paypal", "gift_card", "apple_pay", "google_pay"]
+              arguments:
+                values: ["credit_card", "debit_card", "paypal", "gift_card", "apple_pay", "google_pay"]
       - name: created_by_system
         tests:
           - not_null
           - accepted_values:
-              values: ["ecommerce_platform", "pos_system", "mobile_app"]        
+              arguments:
+                values: ["ecommerce_platform", "pos_system", "mobile_app"]        
       - name: currency
         tests:
           - not_null
           - accepted_values:
-              - GBP
+              arguments:
+                values: ["GBP"]
 
 
   - name: stg_order_items
@@ -155,21 +176,29 @@ models:
         tests:
           - not_null
           - unique
-          - regex: "^ORDER-[0-9]{8}-[0-9]{3}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^ORDER-[0-9]{8}-[0-9]{3}$"
       - name: order_id
         tests:
           - not_null
-          - regex: "^ORDER-[0-9]{8}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^ORDER-[0-9]{8}$"
           - relationships:
-              to: ref('stg_orders')
-              field: order_id
+              arguments:
+                to: ref('stg_orders')
+                field: order_id
       - name: product_id
         tests:
           - not_null
-          - regex: "^PRODUCT-[0-9]{6}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^PRODUCT-[0-9]{6}$"
           - relationships:
-              to: ref('stg_products')
-              field: product_id
+              arguments:
+                to: ref('stg_products')
+                field: product_id
 
 
   - name: stg_inventory_snapshots
@@ -182,17 +211,23 @@ models:
       - name: store_id
         tests:
           - not_null
-          - regex: "^STORE-[0-9]{4}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^STORE-[0-9]{4}$"
           - relationships:
-              to: ref('stg_stores')
-              field: store_id
+              arguments:
+                to: ref('stg_stores')
+                field: store_id
       - name: product_id
         tests:
           - not_null
-          - regex: "^PRODUCT-[0-9]{6}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^PRODUCT-[0-9]{6}$"
           - relationships:
-              to: ref('stg_products')
-              field: product_id
+              arguments:
+                to: ref('stg_products')
+                field: product_id
 
 
   - name: stg_promotions
@@ -202,16 +237,22 @@ models:
         tests:
           - not_null
           - unique
-          - regex: "^PROMO-[0-9]{4}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^PROMO-[0-9]{4}$"
       - name: product_id
         tests:
           - not_null
-          - regex: "^PRODUCT-[0-9]{6}$"
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^PRODUCT-[0-9]{6}$"
           - relationships:
-              to: ref('stg_products')
-              field: product_id
+              arguments:
+                to: ref('stg_products')
+                field: product_id
       - name: channel
         tests:
           - not_null
           - accepted_values:
-              values: ["online", "store", "all"]
+              arguments:
+                values: ["online", "store", "all"]

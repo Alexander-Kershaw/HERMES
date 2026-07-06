@@ -4,7 +4,7 @@ sources:
   - name: silver
     description: "Trusted / validated silver delta tables produced from the bronze to silver PySpark transformation and validation layer"
     database: "{{ var('silver_catalog', 'target.database') }}"
-    schema: "{{ var{'silver_schema', 'silver'} }}"
+    schema: "{{ var('silver_schema', 'silver') }}"
 
     tables:
       - name: customers
@@ -26,6 +26,6 @@ sources:
         description: "Cleaned and validated store product inventory snapshot records"
 
       - name: promotions
-        descriptions: "Cleaned and validated product promotion records"
+        description: "Cleaned and validated product promotion records"
 
         

@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: mart_daily_retail_kpis
+    description: "Daily retail KPI mart by order date and channel."
+    columns:
+      - name: order_date
+        tests:
+          - not_null
+      - name: channel
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["online", "store", "mobile_app"]
+
+  - name: mart_promotion_performance
+    description: "Promotion performance mart based on product/date/channel attribution."
+    columns:
+      - name: promotion_id
+        tests:
+          - not_null

@@ -326,3 +326,53 @@ This confirmed that the quarantine mechanism works, but also highlighted the nee
 
 ---
 
+# Event-009: dbt Gold Modelling
+
+## Summary
+
+Started the dbt Gold modelling layer.
+
+The dbt project defines staging, intermediate, and mart models for trusted retail analytics.
+
+## Models added
+
+Staging:
+
+- stg_customers
+- stg_stores
+- stg_products
+- stg_orders
+- stg_order_items
+- stg_inventory_snapshots
+- stg_promotions
+
+Intermediate:
+
+- int_order_revenue
+- int_inventory_position
+- int_promotion_attribution
+
+Marts:
+
+- dim_customer
+- dim_product
+- dim_store
+- fct_sales
+- fct_inventory_snapshot
+- mart_daily_retail_kpis
+- mart_promotion_performance
+
+## Design decision
+
+dbt is used for data modelling from silver to gold layers, not for ingestion or silver data engineering.
+
+PySpark remains responsible for engineering intensive transformations. dbt is responsible for business intelligence models, tests, documentation, and lineage.
+
+## Trade Offs
+
+The dbt project is designed for Databricks execution with dbt-databricks. It is scaffolded locally for now, but full execution will occur once silver delta tables are registered in Databricks.
+
+This avoids forcing dbt onto local delta files in a way that does not represent the target architecture, which would just be a rather fruitless waste of time.
+
+---
+
