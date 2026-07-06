@@ -1,0 +1,36 @@
+name: hermes
+version: "0.1.0"
+config-version: 2
+
+profile: hermes
+
+model-paths:
+  - models
+
+seed-paths:
+  - seeds
+
+test-paths:
+  - tests
+
+macro-paths:
+  - macros
+
+target-path: target
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  hermes:
+    staging:
+      +materialized: view
+      +schema: silver_staging
+
+    intermediate:
+      +materialized: view
+      +schema: gold_intermediate
+    
+    marts:
+      +materialized: table
+      +schema: gold

@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  - name: silver
+    description: "Trusted / validated silver delta tables produced from the bronze to silver PySpark transformation and validation layer"
+    database: "{{ var('silver_catalog', 'target.database') }}"
+    schema: "{{ var{'silver_schema', 'silver'} }}"
+
+    tables:
+      - name: customers
+        description: "Cleaned and validated customer master records"
+      
+      - name: stores
+        description: "Cleaned and validated store reference records"
+
+      - name: products
+        description: "Cleaned and validated product catalogue records"
+
+      - name: orders
+        description: "Cleaned and validated order header records"
+
+      - name: order_items
+        description: "Cleaned and validated order line records"
+
+      - name: inventory_snapshots
+        description: "Cleaned and validated store product inventory snapshot records"
+
+      - name: promotions
+        descriptions: "Cleaned and validated product promotion records"
+
+        

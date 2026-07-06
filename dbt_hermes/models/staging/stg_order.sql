@@ -1,0 +1,20 @@
+SELECT
+    order_id,
+    customer_id,
+    store_id,
+    channel,
+    status,
+    order_timestamp,
+    CAST(order_timestamp AS DATE) AS order_date,
+    currency,
+    gross_amount,
+    discount_amount,
+    net_amount,
+    tax_amount,
+    payment_method,
+    create_by_system,
+    source_file_date,
+    customer_note,
+    _silver_processed_at,
+    _silver_processing_date
+FROM {{ source('silver', 'orders') }}
