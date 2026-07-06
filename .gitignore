@@ -54,3 +54,25 @@ data/
 *.db
 *.sqlite
 *.duckdb
+
+# logs
+*.log
+logs/
+
+# Notebook
+.ipynb_checkpoints/
+
+# dbt
+dbt_hermes/target/
+dbt_hermes/dbt_packages/
+dbt_hermes/logs/
+dbt_hermes/profiles.yml
+
+# spark / delta
+spark-warehouse/
+metastore_db/
+derby.log
+.delta_log/
+checkpoints/
+_checkpoint/
+*.crc
