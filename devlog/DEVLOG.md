@@ -376,3 +376,26 @@ This avoids forcing dbt onto local delta files in a way that does not represent 
 
 ---
 
+# Event-010: Local Batch Orchestration
+
+## Summary
+
+Added a local batch orchestration command for the batch lakehouse pipeline.
+
+The runner executes source generation, Bronze ingestion, Silver transformation, Silver validation, relationship validation, quarantine summary, and dbt parse.
+
+## Design decision
+
+The local runner is intentionally simple and Pythonic.
+
+It acts as a local equivalent of the Azure batch orchestration that will later be implemented with Azure Data Factory and Databricks jobs.
+
+## Trade Offs
+
+The runner uses `dbt parse` rather than `dbt run` because the dbt project is designed to execute against Databricks.
+
+This avoids forcing dbt into an unrealistic local execution setup.
+
+---
+
+
