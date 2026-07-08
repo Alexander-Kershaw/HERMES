@@ -1,0 +1,6 @@
+project_name = "hermes"
+environment = "dev"
+location = "uksouth"
+resource_group_name = "rg-hermes-dev-uksouth"
+storage_account_replication_type = "LDS"
+databricks_sku = "premium"
