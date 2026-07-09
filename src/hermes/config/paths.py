@@ -15,6 +15,7 @@ Returns a string because Spark accepts both local paths and abfss:// paths as st
 
 """
 
+
 def join_uri(base_path: str, *parts: str) -> str:
 
     cleaned_base: str = base_path.rstrip("/")
@@ -22,5 +23,5 @@ def join_uri(base_path: str, *parts: str) -> str:
 
     if not cleaned_parts:
         return cleaned_base
-    
+
     return "/".join([cleaned_base, *cleaned_parts])
