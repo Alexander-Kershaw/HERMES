@@ -5,41 +5,46 @@ ADLS smoke test:
 - Confirms if Databricks can write Delta outputs to ADLS.
 - Conforms if Databricks can then read the Delta outputs back.
 
+Note this is ran inside Azure Databricks on a simple compute cluster
+
 """
 
-# Actual name and key not includes for cloud security (set in databricks workspace directly)
-hermes_storage_account_name: str = "name"
-hermes_storage_account_key: str = "key"
-
-client_id: str = "dummy"
-client_secret: str = "dummy"
-tenant_id: str = "dummy"
+hermes_storage_account_name = "hermes_storage_account_name" # not the real name
 
 # Configuring databricks OAuth
-spark.conf.set(
-    f"fs.azure.account.auth.type.{hermes_storage_account_name}.dfs.core.windows.net",
-    "OAuth",
-)
+client_id = dbutils.secrets.get("hermes-dev", "adls-client-id")
+
+client_secret = dbutils.secrets.get("hermes-dev", "adls-client-secret")
+
+tenant_id = dbutils.secrets.get("hermes-dev", "tenant-id")
+
+account_fqdn = f"{hermes_storage_account_name}.dfs.core.windows.net"
+
+spark.conf.set(f"fs.azure.account.auth.type.{account_fqdn}","OAuth")
 
 spark.conf.set(
-    f"fs.azure.account.oauth.provider.type.{hermes_storage_account_name}.dfs.core.windows.net",
+    f"fs.azure.account.oauth.provider.type.{account_fqdn}",
     "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
 )
 
-spark.conf.set(
-    f"fs.azure.account.oauth2.client.id.{hermes_storage_account_name}.dfs.core.windows.net",
-    client_id,
-)
+spark.conf.set(f"fs.azure.account.oauth2.client.id.{account_fqdn}", client_id)
+
+spark.conf.set(f"fs.azure.account.oauth2.client.secret.{account_fqdn}", client_secret)
 
 spark.conf.set(
-    f"fs.azure.account.oauth2.client.secret.{hermes_storage_account_name}.dfs.core.windows.net",
-    client_secret,
+    f"fs.azure.account.oauth2.client.endpoint.{account_fqdn}",
+    f"https://login.microsoftonline.com/{tenant_id}/oauth2/token"
 )
 
-# Necessary paths
+print(f"Configured OAuth for {account_fqdn}")
+
+
+# Neccessary paths
 landing_orders_blob_path = f"abfss://landing@{hermes_storage_account_name}.dfs.core.windows.net/hermes/raw/orders.csv"
 
 silver_test_path = f"abfss://silver@{hermes_storage_account_name}.dfs.core.windows.net/hermes/test/order_delta"
+
+print(landing_orders_blob_path)
 
 # Reading orders from landed source data
 orders_df = (spark.read.option("header", True).option("inferSchema", True).csv(landing_orders_blob_path))

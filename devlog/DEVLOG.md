@@ -398,4 +398,74 @@ This avoids forcing dbt into an unrealistic local execution setup.
 
 ---
 
+# Event-011: Azure Batch Infrastructure
+
+## Summary
+
+Succesfully added the Azure batch infrastructure.
+
+Added Terraform definitions for the first Azure landing zone.
+
+## Resources included
+
+- Resource Group
+- ADLS Gen2 storage account
+- lakehouse containers
+- Azure Data Factory
+- Azure Databricks workspace
+- Key Vault
+- Log Analytics workspace
+
+## Design decision
+
+The infrastructure is for the batch pipeline first.
+
+Streaming resources are intentionally excluded for now to keep the architecture focused and avoid premature complexity.
+
+Initially I wanted to used the standard databricks SKU however this is no longer supported as of 2026 so the databricks workspace uses the premium SKU.
+
+## Trade Offs
+
+The first Terraform implementation is flat rather and intentionally a little sparce for now.
+
+This keeps the infrastructure easy to read and debug during early development. Modules may be introduced later if the infrastructure grows.
+
+---
+
+# Entry-012: Databricks ADLS Smoke Test
+
+## Summary
+
+I validated that Azure Databricks can read from and write to the ADLS Gen2 lakehouse.
+
+The smoke test read uploaded CSV data from the `landing` container, wrote Delta output to the `silver` container, and read the Delta output back successfully. Confirming read and write capabilities fundamantal to the pipeline.
+
+## What was validated
+
+- Azure CLI upload to ADLS landing
+- Databricks workspace access
+- Dedicated/single-user Databricks compute
+- Databricks secret scope usage
+- Microsoft Entra service principal OAuth authentication
+- ADLS Gen2 read via `abfss://`
+- Delta write to ADLS
+- Delta read back from ADLS
+
+## Access pattern
+
+The smoke test uses a Microsoft Entra service principal with `Storage Blob Data Contributor` permissions on the Hermes storage account.
+
+Credentials are stored in the Databricks secret scope `hermes-dev` and retrieved at runtime using `dbutils.secrets.get`.
+
+## Issues Resolved
+
+Initial attempts failed because the notebook was attached to the wrong compute type and because the service principal secret mapping needed correcting.
+
+The successful configuration used dedicated Databricks compute and the correct mapping:
+
+- `appId` to `adls-client-id`
+- `password` to `adls-client-secret`
+- `tenant` to `tenant-id`
+
+---
 
