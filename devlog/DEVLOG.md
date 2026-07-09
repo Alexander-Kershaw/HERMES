@@ -469,3 +469,23 @@ The successful configuration used dedicated Databricks compute and the correct m
 
 ---
 
+# Entry-013: Runtime Configuration
+
+## Summary
+
+I added runtime configuration for local and Azure execution modes.
+
+The new configuration layer centralises lakehouse paths and allows HERMES to switch between local filesystem paths and ADLS Gen2 `abfss://` paths.
+
+## Design decision
+
+The project will use one pipeline implementation with configurable paths rather than maintaining separate local and Azure codebases.
+
+## Runtime modes
+
+Local mode uses repository-local paths under `data/`.
+
+Azure mode builds ADLS Gen2 paths from the `HERMES_STORAGE_ACCOUNT` environment variable.
+
+---
+

@@ -8,8 +8,10 @@ ADLS smoke test:
 Note this is ran inside Azure Databricks on a simple compute cluster
 
 """
+# Ignore ruff check here since dependencies are satified in the Azure Databricks environment
+# ruff: noqa
 
-hermes_storage_account_name = "hermes_storage_account_name" # not the real name
+hermes_storage_account_name = "hermes_storage_account_name"  # not the real name
 
 # Configuring databricks OAuth
 client_id = dbutils.secrets.get("hermes-dev", "adls-client-id")
@@ -20,7 +22,7 @@ tenant_id = dbutils.secrets.get("hermes-dev", "tenant-id")
 
 account_fqdn = f"{hermes_storage_account_name}.dfs.core.windows.net"
 
-spark.conf.set(f"fs.azure.account.auth.type.{account_fqdn}","OAuth")
+spark.conf.set(f"fs.azure.account.auth.type.{account_fqdn}", "OAuth")
 
 spark.conf.set(
     f"fs.azure.account.oauth.provider.type.{account_fqdn}",
@@ -31,10 +33,7 @@ spark.conf.set(f"fs.azure.account.oauth2.client.id.{account_fqdn}", client_id)
 
 spark.conf.set(f"fs.azure.account.oauth2.client.secret.{account_fqdn}", client_secret)
 
-spark.conf.set(
-    f"fs.azure.account.oauth2.client.endpoint.{account_fqdn}",
-    f"https://login.microsoftonline.com/{tenant_id}/oauth2/token"
-)
+spark.conf.set(f"fs.azure.account.oauth2.client.endpoint.{account_fqdn}", f"https://login.microsoftonline.com/{tenant_id}/oauth2/token")
 
 print(f"Configured OAuth for {account_fqdn}")
 
@@ -47,7 +46,7 @@ silver_test_path = f"abfss://silver@{hermes_storage_account_name}.dfs.core.windo
 print(landing_orders_blob_path)
 
 # Reading orders from landed source data
-orders_df = (spark.read.option("header", True).option("inferSchema", True).csv(landing_orders_blob_path))
+orders_df = spark.read.option("header", True).option("inferSchema", True).csv(landing_orders_blob_path)
 
 # Proving read
 print("Landing orders schema:")
@@ -62,9 +61,7 @@ display(orders_df.limit(20))
 
 # Proving writing to delta into silver test cloud storage folder
 
-(
-    orders_df.write.format("delta").mode("overwrite").save(silver_test_path)
-)
+(orders_df.write.format("delta").mode("overwrite").save(silver_test_path))
 
 print(f"Wrote Delta test table to: {silver_test_path}")
 
@@ -76,9 +73,7 @@ test_df = spark.read.format("delta").load(silver_test_path)
 test_count = test_df.count()
 print(f"Orders delta row count (read back): {test_count}")
 
-assert test_count == orders_count, (
-    f"Test failed: expected order row count {orders_count}, to be equal to order delta count {test_count}"
-)
+assert test_count == orders_count, f"Test failed: expected order row count {orders_count}, to be equal to order delta count {test_count}"
 
 
 print("Test orders data delta table sample:")
