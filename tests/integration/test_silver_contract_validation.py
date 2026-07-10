@@ -1,16 +1,16 @@
 from pathlib import Path
 
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
-from hermes.quality.contract_validators import failed_records_for_column_rules, validate_table, write_validation_report
-from hermes.quality.contracts import load_yaml_contract
+from hermes.quality.contract_validators import ContractValidationResult, failed_records_for_column_rules, validate_table, write_validation_report
+from hermes.quality.contracts import HermesDataContract, load_yaml_contract
 from hermes.utils.spark import create_local_spark_session
 
 
 def test_validate_table_passes_for_valid_data(tmp_path: Path) -> None:
-    spark = create_local_spark_session("test_validate_table_passes_for_valid_data")
+    spark = create_local_spark_session(name="test_validate_table_passes_for_valid_data")
 
-    contract_path = tmp_path / "customers.yml"
+    contract_path: Path = tmp_path / "customers.yml"
     contract_path.write_text(
         """
 table: customers
@@ -34,7 +34,7 @@ columns:
         encoding="utf-8",
     )
 
-    contract = load_yaml_contract(contract_path)
+    contract: HermesDataContract = load_yaml_contract(contract_path=contract_path)
 
     df = spark.createDataFrame(
         [
@@ -43,7 +43,7 @@ columns:
         ]
     )
 
-    results = validate_table(df, contract)
+    results: list[ContractValidationResult] = validate_table(df=df, contract=contract)
 
     assert all(result.passed for result in results)
 
@@ -51,9 +51,9 @@ columns:
 
 
 def test_validate_table_fails_for_invalid_data(tmp_path: Path) -> None:
-    spark: SparkSession = create_local_spark_session("test_validate_table_fails_for_invalid_data")
+    spark: SparkSession = create_local_spark_session(name="test_validate_table_fails_for_invalid_data")
 
-    contract_path = tmp_path / "customers.yml"
+    contract_path: Path = tmp_path / "customers.yml"
     contract_path.write_text(
         """
 table: customers
@@ -77,7 +77,7 @@ columns:
         encoding="utf-8",
     )
 
-    contract = load_yaml_contract(contract_path)
+    contract: HermesDataContract = load_yaml_contract(contract_path=contract_path)
 
     df = spark.createDataFrame(
         [
@@ -87,9 +87,9 @@ columns:
         ]
     )
 
-    results = validate_table(df, contract)
+    results: list[ContractValidationResult] = validate_table(df=df, contract=contract)
 
-    failed_results = [result for result in results if not result.passed]
+    failed_results: list[ContractValidationResult] = [result for result in results if not result.passed]
 
     assert failed_results
     assert any(result.rule_name == "unique" for result in failed_results)
@@ -100,9 +100,9 @@ columns:
 
 
 def test_write_validation_report(tmp_path: Path) -> None:
-    spark = create_local_spark_session("test_write_validation_report")
+    spark = create_local_spark_session(name="test_write_validation_report")
 
-    contract_path = tmp_path / "customers.yml"
+    contract_path: Path = tmp_path / "customers.yml"
     contract_path.write_text(
         """
 table: customers
@@ -117,22 +117,22 @@ columns:
         encoding="utf-8",
     )
 
-    contract = load_yaml_contract(contract_path)
+    contract: HermesDataContract = load_yaml_contract(contract_path=contract_path)
 
     df = spark.createDataFrame([{"customer_id": "CUSTOMER-000001"}])
-    results = validate_table(df, contract)
+    results: list[ContractValidationResult] = validate_table(df=df, contract=contract)
 
-    report_path = write_validation_report(results, output_dir=tmp_path)
+    report_path: str = write_validation_report(results=results, output_dir=str(tmp_path))
 
-    assert report_path.exists()
+    assert Path(report_path).exists()
 
     spark.stop()
 
 
 def test_validate_table_fails_invalid_accepted_values(tmp_path: Path) -> None:
-    spark = create_local_spark_session("test_validate_table_fails_invalid_accepted_values")
+    spark = create_local_spark_session(name="test_validate_table_fails_invalid_accepted_values")
 
-    contract_path = tmp_path / "orders.yml"
+    contract_path: Path = tmp_path / "orders.yml"
     contract_path.write_text(
         """
 table: orders
@@ -150,7 +150,7 @@ columns:
         encoding="utf-8",
     )
 
-    contract = load_yaml_contract(contract_path)
+    contract: HermesDataContract = load_yaml_contract(contract_path=contract_path)
 
     df = spark.createDataFrame(
         [
@@ -159,7 +159,7 @@ columns:
         ]
     )
 
-    results = validate_table(df, contract)
+    results: list[ContractValidationResult] = validate_table(df=df, contract=contract)
 
     assert any(not result.passed for result in results)
     assert any(result.rule_name == "accepted_values" for result in results)
@@ -168,9 +168,9 @@ columns:
 
 
 def test_failied_records_for_accepted_values() -> None:
-    spark = create_local_spark_session("testing_failed_records_for_accepted_values")
+    spark = create_local_spark_session(name="testing_failed_records_for_accepted_values")
 
-    df = spark.createDataFrame([{"channel": "online"}, {"channel": "store"}, {"channel": "came to me in a dream"}])
+    df: DataFrame = spark.createDataFrame([{"channel": "online"}, {"channel": "store"}, {"channel": "came to me in a dream"}])
 
     failed_validation_records = failed_records_for_column_rules(df=df, column_name="channel", rule_name="accepted_values", rule_config=["online", "store", "mobile_app"])
 
@@ -181,9 +181,9 @@ def test_failied_records_for_accepted_values() -> None:
 
 
 def test_get_failed_records_for_unique() -> None:
-    spark = create_local_spark_session("test_get_failed_records_for_unique")
+    spark = create_local_spark_session(name="test_get_failed_records_for_unique")
 
-    df = spark.createDataFrame(
+    df: DataFrame = spark.createDataFrame(
         [
             {"order_id": "ORDER-00000001"},
             {"order_id": "ORDER-00000001"},

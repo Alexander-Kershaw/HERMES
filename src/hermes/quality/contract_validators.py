@@ -6,11 +6,29 @@ import pandas as pd
 from loguru import logger
 from pyspark.sql import DataFrame, SparkSession, functions
 
+from hermes.config.paths import join_uri
+from hermes.config.runtime import HermesRuntimeEnvironment, HermesRuntimeSettings, retrieve_hermes_runtime_settings
 from hermes.quality.contracts import HermesDataContract, HermesRelationshipsContract, load_all_yaml_contracts, load_table_relationship_yaml_contract
 from hermes.quality.data_quarantine import HermesQuarantineResult, write_failed_record_to_quarantine
 from hermes.utils.logging import config_logging
 from hermes.utils.paths import hermes_data_audit_dir, hermes_silver_dir
 from hermes.utils.spark import create_local_spark_session
+
+"""
+=====================================================================================================================================================
+REFACTOR NOTES:
+=====================================================================================================================================================
+
+- Path objects are substituted for string paths for silver/quarantine/audit locations so cloud URIs are compatible
+
+- Path objects are only used for local mode -> Azure mode exclusively uses string paths
+
+- audit report wrtiting maintains use of Pandas only for local environment, Spark is used for Azure
+
+- Spark sessions created with the create_local_spark_session() function call, For Azure a clean spark session is built
+
+=====================================================================================================================================================
+"""
 
 
 @dataclass(frozen=True)
@@ -35,6 +53,60 @@ class RelationContractValidationResult:
     failed_count: int
     child_count: int
     details: str
+
+
+def check_if_azure_cloud_path(path: str | Path) -> bool:
+    return str(path).startswith("abfss://")
+
+
+def _get_validation_spark_session(spark: SparkSession | None = None) -> SparkSession:
+    if spark is not None:
+        return spark
+
+    runtime_settings: HermesRuntimeSettings = retrieve_hermes_runtime_settings()
+
+    if runtime_settings.environment == HermesRuntimeEnvironment.LOCAL_ENV:
+        return create_local_spark_session(name="HERMES Silver Vaidation")
+
+    return SparkSession.builder.getOrCreate()
+
+
+def _resolve_silver_base_path(silver_base_path: str | Path | None = None) -> str:
+
+    if silver_base_path is not None:
+        return str(silver_base_path)
+
+    runtime_settings: HermesRuntimeSettings = retrieve_hermes_runtime_settings()
+
+    if runtime_settings.environment == HermesRuntimeEnvironment.LOCAL_ENV:
+        return str(hermes_silver_dir())
+
+    return runtime_settings.silver_path
+
+
+def _resolve_audit_base_path(audit_base_path: str | Path | None = None) -> str:
+    if audit_base_path is not None:
+        return str(audit_base_path)
+
+    runtime_settings: HermesRuntimeSettings = retrieve_hermes_runtime_settings()
+
+    if runtime_settings.environment == HermesRuntimeEnvironment.LOCAL_ENV:
+        return str(hermes_data_audit_dir())
+
+    return runtime_settings.audit_path
+
+
+def resolve_silver_table_path(silver_base_path: str | Path, table_name: str) -> str:
+    return join_uri(str(silver_base_path), table_name)
+
+
+def _validate_local_path_exists(path: str, label: str) -> None:
+
+    if check_if_azure_cloud_path(path=path):
+        return
+
+    if not Path(path).exists():
+        raise FileNotFoundError(f"{label} does not exist in path: {path}")
 
 
 def _normalise_contract_rule(rule: str | dict[str, Any]) -> tuple[str, Any]:
@@ -90,7 +162,7 @@ def validate_column_rule(
 ) -> ContractValidationResult:
 
     rule_name, rule_config = _normalise_contract_rule(rule)
-    total_count = df.count()
+    total_count: int = df.count()
 
     if column_name not in df.columns:
         return ContractValidationResult(
@@ -139,11 +211,11 @@ def validate_column_rule(
 
 def validate_table(df: DataFrame, contract: HermesDataContract) -> list[ContractValidationResult]:
 
-    results = []
+    results: list = []
 
     for column_name, column_config in contract.columns.items():
         for rule in column_config.get("rules", []):
-            result = validate_column_rule(
+            result: ContractValidationResult = validate_column_rule(
                 df=df,
                 table_name=contract.table,
                 column_name=column_name,
@@ -154,12 +226,9 @@ def validate_table(df: DataFrame, contract: HermesDataContract) -> list[Contract
     return results
 
 
-def write_validation_report(results: list[ContractValidationResult], output_dir: Path | None = None) -> Path:
+def write_validation_report(results: list[ContractValidationResult], output_dir: str | Path | None = None, spark: SparkSession | None = None) -> str:
 
-    output_dir = output_dir or hermes_data_audit_dir()
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    output_path = output_dir / "silver_validation_report.csv"
+    resolved_output_dir: str = _resolve_audit_base_path(audit_base_path=output_dir)
 
     report_df = pd.DataFrame(
         [
@@ -176,45 +245,57 @@ def write_validation_report(results: list[ContractValidationResult], output_dir:
         ]
     )
 
-    report_df.to_csv(output_path, index=False)
-    logger.info(f"Wrote Silver validation report to {output_path}")
+    if check_if_azure_cloud_path(path=resolved_output_dir):
+        spark = _get_validation_spark_session(spark=spark)
+        output_path: str = join_uri(resolved_output_dir, "silver_validation_report")
 
-    return output_path
+        (spark.createDataFrame(report_df).write.mode("overwrite").option("header", True).csv(output_path))
+
+        logger.info(f"Write Silver validation report to: {output_path}")
+
+        return output_path
+
+    output_path = Path(resolved_output_dir) / "silver_validation_report.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+    report_df.to_csv(output_path, index=False)
+
+    logger.info(f"Wrote Silver validation report to: {output_path}")
+
+    return str(output_path)
 
 
 def validate_silver_tables(
     spark: SparkSession | None = None,
-    silver_base_dir: Path | None = None,
+    silver_base_path: str | Path | None = None,
     contract_dir: Path | None = None,
-    report_dir: Path | None = None,
+    report_dir: str | Path | None = None
 ) -> list[ContractValidationResult]:
 
     config_logging()
 
-    spark = spark or create_local_spark_session("HERMES Silver Validation")
-    silver_base_dir = silver_base_dir or hermes_silver_dir()
+    spark = _get_validation_spark_session(spark=spark)
+    silver_base_path = _resolve_silver_base_path(silver_base_path=silver_base_path)
     contract_dir = contract_dir or Path("contracts/silver")
 
-    contracts = load_all_yaml_contracts(contract_dir)
-    all_results = []
+    contracts: dict[str, HermesDataContract] = load_all_yaml_contracts(contracts_dir=contract_dir)
+    all_results: list[ContractValidationResult] = []
 
     for table_name, contract in contracts.items():
-        table_path = silver_base_dir / table_name
-
-        if not table_path.exists():
-            raise FileNotFoundError(f"Silver table does not exist: {table_path}")
+        table_path: str= resolve_silver_table_path(silver_base_path=silver_base_path, table_name=table_name)
+        _validate_local_path_exists(path=table_path, label="Silver Table")
 
         logger.info(f"Validating Silver table: {table_name}")
 
-        df = spark.read.format("delta").load(str(table_path))
-        table_results = validate_table(df, contract)
+        df = spark.read.format("delta").load(table_path)
+        table_results: list[ContractValidationResult] = validate_table(df=df, contract=contract)
         all_results.extend(table_results)
 
         quarantine_table_validation_failures(df=df, data_contract=contract, validation_results=table_results)
 
-    write_validation_report(all_results, report_dir)
+    write_validation_report(results=all_results, output_dir=report_dir)
 
-    failed_results = [result for result in all_results if not result.passed]
+    failed_results: list[ContractValidationResult] = [result for result in all_results if not result.passed]
     if failed_results:
         logger.warning(f"Silver validation completed with {len(failed_results)} failed checks")
     else:
@@ -253,8 +334,8 @@ def validate_table_relationships(table_relationship: HermesRelationshipsContract
 
     orphan_keys = child_keys.join(parent_keys, child_keys["child_key"] == parent_keys["parent_key"], "left_anti")
 
-    failed_count = orphan_keys.count()
-    child_count = child_keys.count()
+    failed_count: int = orphan_keys.count()
+    child_count: int = child_keys.count()
 
     relationship_validation_result = RelationContractValidationResult(
         table_relationship_name=table_relationship.table_relationship_name,
@@ -271,15 +352,9 @@ def validate_table_relationships(table_relationship: HermesRelationshipsContract
     return relationship_validation_result
 
 
-def write_relationship_validation_report(
-    results: list[RelationContractValidationResult],
-    output_dir: Path | None = None,
-) -> Path:
+def write_relationship_validation_report(results: list[RelationContractValidationResult], output_dir: str | Path | None = None, spark: SparkSession | None = None) -> str:
 
-    output_dir = output_dir or hermes_data_audit_dir()
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    output_path = output_dir / "silver_relationship_validation_report.csv"
+    resolved_output_dir: str = _resolve_audit_base_path(audit_base_path=output_dir)
 
     validation_report_df = pd.DataFrame(
         [
@@ -298,41 +373,55 @@ def write_relationship_validation_report(
         ]
     )
 
-    validation_report_df.to_csv(output_path, index=False)
-    logger.info(f"Wrote silver table relationship validation report to {output_path}")
+    if check_if_azure_cloud_path(path=resolved_output_dir):
+        spark = _get_validation_spark_session(spark=spark)
+        output_path = join_uri(resolved_output_dir, "silver_relationship_validation_report")
 
-    return output_path
+        (spark.createDataFrame(validation_report_df).write.mode("overwrite").option("header", True).csv(output_path))
+
+        logger.info(f"Write silver table relationship validation report to: {output_path}")
+
+    output_path: Path = Path(resolved_output_dir) / "silver_relationship_validation_report.csv"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    validation_report_df.to_csv(output_path, index=False)
+    logger.info(f"Wrote silver table relationship validation report to: {output_path}")
+
+    return str(output_path)
 
 
 def validate_silver_table_relationships(
-    validation_spark_session: SparkSession | None = None, silver_base_dir: Path | None = None, table_relationship_contract_path: Path | None = None, validation_report_dir: Path | None = None
+    validation_spark_session: SparkSession | None = None,
+    silver_base_path: str | Path | None = None,
+    table_relationship_contract_path: Path | None = None,
+    validation_report_path: str | Path | None = None,
 ) -> list[RelationContractValidationResult]:
 
     config_logging()
 
-    spark = validation_spark_session or create_local_spark_session(name="HERMES silver table relationship validation")
-    silver_base_dir = silver_base_dir or hermes_silver_dir()
+    spark = _get_validation_spark_session(spark=validation_spark_session)
+    silver_base_path = _resolve_silver_base_path(silver_base_path=silver_base_path)
     table_relationship_contract_path = table_relationship_contract_path or Path("contracts/silver/table_relationships/table_relationships.yml")
 
-    silver_table_relationships = load_table_relationship_yaml_contract(table_relationship_contract_path)
+    silver_table_relationships: list[HermesRelationshipsContract] = load_table_relationship_yaml_contract(relation_contract_path=table_relationship_contract_path)
 
-    silver_table_names = sorted({relationship.child_table for relationship in silver_table_relationships} | {relationship.parent_table for relationship in silver_table_relationships})
+    silver_table_names: list[str] = sorted({relationship.child_table for relationship in silver_table_relationships} | {relationship.parent_table for relationship in silver_table_relationships})
 
-    silver_tables = {}
+    silver_tables: dict[str, DataFrame] = {}
 
     for silver_table_name in silver_table_names:
-        table_path = silver_base_dir / silver_table_name
-
-        if not table_path.exists():
-            raise FileNotFoundError(f"Silver table does not exist in path: {table_path}")
+        table_path: str = resolve_silver_table_path(silver_base_path=silver_base_path, table_name=silver_table_name)
+        _validate_local_path_exists(path=table_path, label="Silver table")
 
         silver_tables[silver_table_name] = spark.read.format("delta").load(str(table_path))
 
-    silver_validation_results = [validate_table_relationships(relationship, silver_tables) for relationship in silver_table_relationships]
+    silver_validation_results: list[RelationContractValidationResult] = [
+        validate_table_relationships(table_relationship=relationship, tables=silver_tables) for relationship in silver_table_relationships
+    ]
 
-    write_relationship_validation_report(silver_validation_results, validation_report_dir)
+    write_relationship_validation_report(results=silver_validation_results, output_dir=validation_report_path, spark=spark)
 
-    failed_validation_results = [result for result in silver_validation_results if not result.passed]
+    failed_validation_results: list[RelationContractValidationResult] = [result for result in silver_validation_results if not result.passed]
 
     if failed_validation_results:
         logger.warning(f"Silver relationship validation has been completed with {len(failed_validation_results)} failed checks")
@@ -365,7 +454,7 @@ def failed_records_for_column_rules(df: DataFrame, column_name: str, rule_name: 
 
 
 def quarantine_table_validation_failures(
-    df: DataFrame, data_contract: HermesDataContract, validation_results: list[ContractValidationResult], quarantine_base_dir: Path | None = None
+    df: DataFrame, data_contract: HermesDataContract, validation_results: list[ContractValidationResult], quarantine_base_dir: str | Path | None = None
 ) -> list[HermesQuarantineResult]:
 
     quarantine_results = []
@@ -413,11 +502,14 @@ def quarantine_table_validation_failures(
 
 
 def main() -> None:
-    column_validation_results = validate_silver_tables()
-    silver_relationship_results = validate_silver_table_relationships()
 
-    failed_column_val_results = [result for result in column_validation_results if not result.passed]
-    failed_relationship_val_results = [result for result in silver_relationship_results if not result.passed]
+    config_logging()
+
+    column_validation_results: list[ContractValidationResult] = validate_silver_tables()
+    silver_relationship_results: list[RelationContractValidationResult] = validate_silver_table_relationships()
+
+    failed_column_val_results: list[ContractValidationResult] = [result for result in column_validation_results if not result.passed]
+    failed_relationship_val_results: list[RelationContractValidationResult] = [result for result in silver_relationship_results if not result.passed]
 
     if failed_column_val_results or failed_relationship_val_results:
         raise SystemExit(
