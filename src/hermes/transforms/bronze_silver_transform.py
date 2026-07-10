@@ -6,9 +6,29 @@ from pyspark.sql import DataFrame, SparkSession, functions
 from pyspark.sql.types import BooleanType, DateType, DoubleType, IntegerType, StringType, StructField, StructType, TimestampType
 from pyspark.sql.window import Window
 
-from hermes.utils.logging import config_logging
-from hermes.utils.paths import hermes_bronze_dir, hermes_silver_dir
+from hermes.config.paths import join_uri
+from hermes.config.runtime import HermesRuntimeEnvironment, HermesRuntimeSettings, retrieve_hermes_runtime_settings
 from hermes.utils.spark import create_local_spark_session
+
+"""
+====================================================================================================
+REFACTOR NOTES:
+====================================================================================================
+
+The refactor here (like bronze ingestion) involves changing dataclass definitions to use strings
+instead of Path types to allow cloud URI paths to work
+
+Since silver transformation already uses spark there is minial refactoring for the overall
+transformation structure.
+
+====================================================================================================
+"""
+
+
+@dataclass(frozen=True)
+class SilverTransformationConfig:
+    bronze_path: str
+    silver_path: str
 
 
 @dataclass(frozen=True)
@@ -158,20 +178,87 @@ DEDUP_ORDER_COLUMNS = {
 }
 
 
-def read_bronze_table(spark: SparkSession, table_name: str, bronze_base_dir: Path) -> DataFrame:
+def check_if_azure_cloud_path(path: str) -> bool:
+    return str(path).startswith("abfss://")
+
+
+def silver_transformation_config_setting() -> SilverTransformationConfig:
     """
 
-    Reads the LOCAL bronze tables, this naturally will be expanded upon later when cloud
-    storage is introduced.
+    Dependiing on the runtime environment (local or cloud Azure) returns the
+    relevant path definitions for the silver and bronze layers (either local
+    directores or Azure Storage containers)
 
     """
 
-    path = bronze_base_dir / table_name / f"{table_name}.parquet"
+    runtime_settings = retrieve_hermes_runtime_settings()
 
-    if not path.exists():
-        raise FileNotFoundError(f"Bronze table does not exist: {path}")
+    return SilverTransformationConfig(bronze_path=runtime_settings.bronze_path, silver_path=runtime_settings.silver_path)
 
-    return spark.read.parquet(str(path))
+
+def _local_bronze_table_path(bronze_base_path: str, table_name: str) -> str:
+    """
+
+    Resolve local Bronze table path.
+
+    Local Bronze ingestion currently writes:
+
+    - data/lakehouse/bronze/<table>/<table>.parquet
+
+    Azure Bronze ingestion writes Spark parquet directories:
+
+    - abfss://bronze@.../hermes/bronze/<table>
+
+    """
+
+    file_path: Path = Path(bronze_base_path) / table_name / f"{table_name}.parquet"
+
+    if file_path.exists():
+        return str(file_path)
+
+    directory_path: Path = Path(bronze_base_path) / table_name
+
+    if directory_path.exists():
+        return str(directory_path)
+
+    raise FileNotFoundError(f"Bronze table does not exist for: {file_path} and {directory_path}")
+
+
+def resolve_bronze_table_path(bronze_base_path: str, table_name: str) -> str:
+    """
+
+    Resolves the bronze table paths for either local or Azure runtime
+
+    """
+
+    if check_if_azure_cloud_path(bronze_base_path):
+        return join_uri(bronze_base_path, table_name)
+
+    return _local_bronze_table_path(bronze_base_path=bronze_base_path, table_name=table_name)
+
+
+def resolve_silver_table_path(silver_base_path: str, table_name: str) -> str:
+    """
+
+    Resolves the transformed silver output table path for local or Azure runtime
+
+    """
+
+    return join_uri(silver_base_path, table_name)
+
+
+def read_bronze_table(spark: SparkSession, table_name: str, bronze_base_path: str) -> DataFrame:
+    """
+
+    Reads the local OR Azure ADLS bronze tables (singular table).
+
+    """
+
+    bronze_table_path: str = resolve_bronze_table_path(bronze_base_path=bronze_base_path, table_name=table_name)
+
+    logger.info(f"Reading Bronze table: {table_name} | from: {bronze_table_path} ")
+
+    return spark.read.parquet(bronze_table_path)
 
 
 def _cast_to_schema(df: DataFrame, schema: StructType) -> DataFrame:
@@ -190,7 +277,7 @@ def _cast_to_schema(df: DataFrame, schema: StructType) -> DataFrame:
 
     """
 
-    columns = []
+    columns: list = []
 
     for field in schema.fields:
         if field.name in df.columns:
@@ -231,12 +318,12 @@ def _deduplicate(df: DataFrame, primary_keys: list[str], order_by_cols: list[str
 
     """
 
-    missing_primary_keys = [col for col in primary_keys if col not in df.columns]
+    missing_primary_keys: list[str] = [col for col in primary_keys if col not in df.columns]
 
     if missing_primary_keys:
         raise ValueError(f"Missing primary key columns fro deduplication: {missing_primary_keys}")
 
-    order_cols_in_df = [col for col in (order_by_cols or []) if col in df.columns]
+    order_cols_in_df: list[str] = [col for col in (order_by_cols or []) if col in df.columns]
 
     if not order_cols_in_df:
         logger.warning("No valid timestamp/ordering columns found for deduplication purposesNow falling back to dropping duplicates on primary key: {}", primary_keys)
@@ -251,8 +338,8 @@ def _deduplicate(df: DataFrame, primary_keys: list[str], order_by_cols: list[str
 def transform_bronze_to_silver_table(
     spark: SparkSession,
     table_name: str,
-    bronze_base_dir: Path,
-    silver_base_dir: Path,
+    bronze_base_path: str,
+    silver_base_path: str,
 ) -> SilverTransformationMeta:
 
     if table_name not in SILVER_SCHEMAS:
@@ -260,7 +347,7 @@ def transform_bronze_to_silver_table(
 
     logger.info(f"Transforming Bronze to Silver: {table_name}")
 
-    bronze_df = read_bronze_table(spark, table_name, bronze_base_dir)
+    bronze_df = read_bronze_table(spark=spark, table_name=table_name, bronze_base_path=bronze_base_path)
 
     """
     
@@ -287,12 +374,12 @@ def transform_bronze_to_silver_table(
     """
 
     silver_df = (
-        bronze_df.transform(lambda df: _cast_to_schema(df, SILVER_SCHEMAS[table_name]))
+        bronze_df.transform(lambda df: _cast_to_schema(df=df, schema=SILVER_SCHEMAS[table_name]))
         .transform(lambda df: _deduplicate(df=df, primary_keys=PRIMARY_KEYS[table_name], order_by_cols=DEDUP_ORDER_COLUMNS.get(table_name, [])))
         .transform(_add_silver_metadata)
     )
 
-    output_path = silver_base_dir / table_name
+    output_path: str = resolve_silver_table_path(silver_base_path=silver_base_path, table_name=table_name)
 
     """
     
@@ -310,10 +397,10 @@ def transform_bronze_to_silver_table(
     
     """
 
-    (silver_df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(str(output_path)))
+    (silver_df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(output_path))
 
-    row_count = silver_df.count()
-    column_count = len(silver_df.columns)
+    row_count: int = silver_df.count()
+    column_count: int = len(silver_df.columns)
 
     logger.info(f"Wrote Silver table {table_name}: {row_count:,} rows to {output_path}")
 
@@ -325,27 +412,39 @@ def transform_bronze_to_silver_table(
     )
 
 
-def transform_all_bronze_to_silver(
-    spark: SparkSession | None = None,
-    bronze_base_dir: Path | None = None,
-    silver_base_dir: Path | None = None,
-) -> list[SilverTransformationMeta]:
+def transform_all_bronze_to_silver(spark: SparkSession | None = None, config: SilverTransformationConfig | None = None) -> list[SilverTransformationMeta]:
+    """
 
-    config_logging()
+    The main refactor here to allow local or Azure spark transformation is the distinction between
+    what spark sessions to use:
 
-    spark = spark or create_local_spark_session(name="HERMES Bronze to Silver")
-    bronze_base_dir = bronze_base_dir or hermes_bronze_dir()
-    silver_base_dir = silver_base_dir or hermes_silver_dir()
+    - For local, the create_local_spark_session() function is called to handle the building of the
+    spark session as defined for the local workflow that works.
 
-    results = []
+    - For Azure, builds a new spark session that will attach to the existing cluster compute session
+    currently attached in Azure Databricks.
+
+    """
+
+    runtime_settings: HermesRuntimeSettings = retrieve_hermes_runtime_settings()
+    config = config or silver_transformation_config_setting()
+
+    if spark is None:
+        if runtime_settings.environment == HermesRuntimeEnvironment.LOCAL_ENV:
+            spark = create_local_spark_session(name="Hermes Bronze to Silver transformation")
+
+        else:
+            spark = SparkSession.builder.getOrCreate()
+
+    logger.info("=====| STARTING BRONZE TO SILVER TRANSFORMATION |=====")
+    logger.info(f"Bronze base path: {config.bronze_path}")
+    logger.info(f"Silver base path: {config.silver_path}")
+
+    results: list[SilverTransformationMeta] = []
 
     for table_name in SILVER_SCHEMAS:
-        result = transform_bronze_to_silver_table(
-            spark=spark,
-            table_name=table_name,
-            bronze_base_dir=bronze_base_dir,
-            silver_base_dir=silver_base_dir,
-        )
+        result: SilverTransformationMeta = transform_bronze_to_silver_table(spark=spark, table_name=table_name, bronze_base_path=config.bronze_path, silver_base_path=config.silver_path)
+
         results.append(result)
 
     return results
