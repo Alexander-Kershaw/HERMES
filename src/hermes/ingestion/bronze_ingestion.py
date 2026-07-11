@@ -196,7 +196,7 @@ def _ingest_source_to_bronze_layer_spark(source_name: str, source_path: str, out
         source_data_df.withColumn("_bronze_source_name", functions.lit(source_name))
         .withColumn("_bronze_source_file", functions.lit(source_path.rstrip("/").split("/")[-1]))
         .withColumn("_bronze_source_path", functions.lit(source_path))
-        .withColumn("_bronze_ingested_at", functions.lit(ingestion_datetime.isoformat(())))
+        .withColumn("_bronze_ingested_at", functions.lit(ingestion_datetime.isoformat()))
         .withColumn("_bronze_ingestion_date", functions.lit(ingestion_datetime.date().isoformat()))
     )
 

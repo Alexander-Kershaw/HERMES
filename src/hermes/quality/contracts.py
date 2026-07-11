@@ -52,9 +52,7 @@ def load_yaml_contract(contract_path: Path) -> HermesDataContract:
     missing_keys: set[str] = required_keys - set(loaded_yaml_contract)
 
     if missing_keys:
-        raise ValueError(
-            f"Invalid data contract at {contract_path}. Missing keys: {sorted(missing_keys)}"
-    )
+        raise ValueError(f"Invalid data contract at {contract_path}. Missing keys: {sorted(missing_keys)}")
 
     data_contract = HermesDataContract(
         table=loaded_yaml_contract["table"], primary_key=loaded_yaml_contract.get("primary_key", []), columns=loaded_yaml_contract.get("columns", {}), contract_path=contract_path
@@ -79,7 +77,7 @@ def load_all_yaml_contracts(contracts_dir: Path) -> dict[str, HermesDataContract
         if "table" not in loaded_yaml_contract:
             continue
 
-        contract: HermesDataContract= load_yaml_contract(contract_path=single_yaml_contract_path)
+        contract: HermesDataContract = load_yaml_contract(contract_path=single_yaml_contract_path)
         all_data_contracts[contract.table] = contract
 
     return all_data_contracts

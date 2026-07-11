@@ -3,7 +3,7 @@
 =====| DATABRICKS NOTEBOOKS: HERMES AZURE BATCH PIPELINE RUNNER |=====
 ==============================================================================================================================
 
-This script is intended to be imported to Databricks Notebooks and run using a simple compute cluster (limit costs and 
+This script is intended to be imported to Databricks Notebooks and run using a simple compute cluster (limit costs and
 terminate clusters when idle and no need to choose particularly powerful compute cluster configurations).
 
 Attached cluster configuration for optimal cost control:
@@ -12,25 +12,25 @@ Attached cluster configuration for optimal cost control:
 - Dedicated / single-user
 - Non-serverless
 - Automatic cluster termination (10 mins minimum)
-- Lower spec cluster compute 
+- Lower spec cluster compute
 
 Note: This batch pipeline runner covers a pipeline running from bronze ingestion, silver transformation, and data validation,
 quarantine, and audit. Gold layer transformations is handled with dbt-databricks after the registration of the silver tables
 to take advantageous of dbt native functionality such as liniage graphs and SQL transformations in the creation of data marts
 and key business intelligence KPIS.
 
-Also Note: I am separating sections of the notebook into individuals cells to be executed one at a time, 
+Also Note: I am separating sections of the notebook into individuals cells to be executed one at a time,
 
 ------------------------------------------------------------------------------------------------------------------------------
 
 The purpose of the Databricks Notebook includes the following:
 
-- Configuration of ADLS (Azure Delta Lake Storage) OAuth access using the established Databricks secrets (details in 
+- Configuration of ADLS (Azure Delta Lake Storage) OAuth access using the established Databricks secrets (details in
 documentation, specifically: docs/azure_databricks_CLI_commands.md).
 
 - Set the Hermes Azure runtime variables (hermes runtime environment set to "azure" and the hermes storage account provided)
 
-- Run the Hermes batch pipeline against ADLS Gen2 (Note: service principle should be defined for appropriate permissions 
+- Run the Hermes batch pipeline against ADLS Gen2 (Note: service principle should be defined for appropriate permissions
 allowing ADLS Gen2 and Azure Databricks to work together).
 
 ------------------------------------------------------------------------------------------------------------------------------
@@ -47,13 +47,15 @@ Expected ADLS pipeline flow:
 
 ------------------------------------------------------------------------------------------------------------------------------
 
-Note: All transformations are handled with Apache Spark since this is native to the Databricks environment. Running with the 
+Note: All transformations are handled with Apache Spark since this is native to the Databricks environment. Running with the
 hermes runtime environment set to "azure" runs the batch pipeline with Spark exclusively, the local environment counterpart
 uses conventional Pandas, partially PySpark, and Path objects intead of str paths which WILL NOT work for Azure workflows.
 
 ==============================================================================================================================
 """
 
+# No ruff checking here due to databricks environment differences from local
+# ruff: noqa
 
 """
 ==============================================================================================================================
@@ -88,16 +90,10 @@ tenant_id: str = dbutils.secrets.get("hermes-dev", "tenant-id")
 account_fqdn = f"{HERMES_AZURE_STORAGE_ACCOUNT_NAME}.dfs.core.windows.net"
 
 spark.conf.set(f"fs.azure.account.auth.type.{account_fqdn}", "OAuth")
-spark.conf.set(
-    f"fs.azure.account.oauth.provider.type.{account_fqdn}",
-    f"org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
-)
+spark.conf.set(f"fs.azure.account.oauth.provider.type.{account_fqdn}", f"org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
 spark.conf.set(f"fs.azure.account.oauth2.client.id.{account_fqdn}", client_id)
 spark.conf.set(f"fs.azure.account.oauth2.client.secret.{account_fqdn}", client_secret)
-spark.conf.set(
-    f"fs.azure.account.oauth2.client.endpoint.{account_fqdn}",
-    f"https://login.microsoftonline.com/{tenant_id}/oauth2/token"
-)
+spark.conf.set(f"fs.azure.account.oauth2.client.endpoint.{account_fqdn}", f"https://login.microsoftonline.com/{tenant_id}/oauth2/token")
 
 print(f"Configured OAuth for {account_fqdn}")
 
@@ -127,6 +123,15 @@ From within a Databricks Notebook cell:
 %pip install git+https://github.com/Alexander-Kershaw/HERMES.git
 dbutils.library.restartPython()
 
+------------------------------------------------------------------------------------------------------------------------------
+
+To reinstall HERMES dependences after making changes and debugging run:
+
+%pip install --force-reinstall git+https://github.com/Alexander-Kershaw/HERMES.git
+dbutils.library.restartPython()
+
+------------------------------------------------------------------------------------------------------------------------------
+
 OR:
 
 built wheel locally with
@@ -140,12 +145,7 @@ Then upload this to the wheel on Databricks
 
 from hermes.ingestion.bronze_ingestion import BronzeIngestionMeta, full_source_ingestion_to_bronze
 from hermes.transforms.bronze_silver_transform import SilverTransformationMeta, transform_all_bronze_to_silver
-from hermes.quality.contract_validators import (
-    ContractValidationResult,
-    RelationContractValidationResult,
-    validate_silver_table_relationships,
-    validate_silver_tables
-)
+from hermes.quality.contract_validators import ContractValidationResult, RelationContractValidationResult, validate_silver_table_relationships, validate_silver_tables
 
 """
 ==============================================================================================================================
@@ -185,9 +185,7 @@ print("=====| Starting HERMES Azure Silver Table (Column-level) Validation |====
 
 silver_validation_results: list[ContractValidationResult] = validate_silver_tables(spark=spark)
 
-failed_silver_validation_results: list[ContractValidationResult] = [
-    result for result in silver_validation_results if not result.passed
-    ]
+failed_silver_validation_results: list[ContractValidationResult] = [result for result in silver_validation_results if not result.passed]
 
 print(f"Total column-level validation checks: {len(silver_transform_results)}")
 print(f"Failed colum-level validation checks: {len(failed_silver_validation_results)}")
@@ -206,9 +204,7 @@ print("=====| Starting HERMES Azure Silver Table Relationship Validation |====="
 
 silver_tbl_relationships_results: list[RelationContractValidationResult] = validate_silver_table_relationships(validation_spark_session=spark)
 
-failed_tbl_relation_results: list[RelationContractValidationResult] = [
-    result for result in silver_tbl_relationships_results if not result.passed
-    ]
+failed_tbl_relation_results: list[RelationContractValidationResult] = [result for result in silver_tbl_relationships_results if not result.passed]
 
 print(f"Total table relationship checks: {len(silver_tbl_relationships_results)}")
 print(f"Failed table relationship checks: {len(failed_tbl_relation_results)}")
@@ -221,12 +217,12 @@ for result in failed_tbl_relation_results:
 ==============================================================================================================================
 SECTION 9: Pipeline Outputs Listing
 ==============================================================================================================================
-"""   
+"""
 
 bronze_path: str = f"abfss://bronze@{HERMES_AZURE_STORAGE_ACCOUNT_NAME}.dfs.core.windows.net/hermes/bronze/"
 silver_path: str = f"abfss://silver@{HERMES_AZURE_STORAGE_ACCOUNT_NAME}.dfs.core.windows.net/hermes/silver/"
 audit_path: str = f"abfss://audit@{HERMES_AZURE_STORAGE_ACCOUNT_NAME}.dfs.core.windows.net/hermes/audit/"
-quarantine_path: str = (f"abfss://quarantine@{HERMES_AZURE_STORAGE_ACCOUNT_NAME}.dfs.core.windows.net/hermes/quarantine/")
+quarantine_path: str = f"abfss://quarantine@{HERMES_AZURE_STORAGE_ACCOUNT_NAME}.dfs.core.windows.net/hermes/quarantine/"
 
 print("Bronze output:")
 display(dbutils.fs.ls(bronze_path))
@@ -248,12 +244,9 @@ except Exception as exc:
 ==============================================================================================================================
 SECTION 10: Validation Failure Exception
 ==============================================================================================================================
-""" 
+"""
 
 if failed_silver_validation_results or failed_tbl_relation_results:
-    raise Exception(
-        "HERMES Azure batch pipeline completed with validation failures. "
-        "Check audit and quarantine outputs."
-    )
+    raise Exception("HERMES Azure batch pipeline completed with validation failures. Check audit and quarantine outputs.")
 
 print("HERMES Azure batch pipeline completed successfully.")

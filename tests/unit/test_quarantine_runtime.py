@@ -49,10 +49,7 @@ def test_make_quarantine_path_uses_azure_runtime(monkeypatch) -> None:
         rule_name="accepted_values",
     )
 
-    assert path == (
-        "abfss://quarantine@sthermesdevexample.dfs.core.windows.net/"
-        "hermes/quarantine/silver/orders/accepted_values_channel"
-    )
+    assert path == ("abfss://quarantine@sthermesdevexample.dfs.core.windows.net/hermes/quarantine/silver/orders/accepted_values_channel")
 
 
 def test_quarantine_result_uses_string_path() -> None:
