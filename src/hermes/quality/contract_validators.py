@@ -499,7 +499,7 @@ def quarantine_table_validation_failures(
             column_name=result.column_name,
             rule_name=result.rule_name,
             failure_reason=result.details,
-            base_quarantine_dir=quarantine_base_dir,
+            base_quarantine_path=quarantine_base_dir,
         )
 
         quarantine_results.append(quarantine_result)
