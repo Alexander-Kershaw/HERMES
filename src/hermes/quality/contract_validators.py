@@ -454,7 +454,7 @@ def failed_records_for_column_rules(df: DataFrame, column_name: str, rule_name: 
         return df.filter(functions.col(column_name).isNotNull() & ~functions.col(column_name).isin(rule_config))
 
     if rule_name == "regex":
-        return df.filter(functions.col(column_name).isNotNull() & ~functions(column_name).rlike(rule_config))
+        return df.filter(functions.col(column_name).isNotNull() & ~functions.col(column_name).rlike(rule_config))
 
     raise ValueError(f"Unsupported validation rule used for quarantine: {rule_name}")
 
