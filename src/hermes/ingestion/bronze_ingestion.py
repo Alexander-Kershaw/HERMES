@@ -190,7 +190,22 @@ def _ingest_source_to_bronze_layer_spark(source_name: str, source_path: str, out
 
     spark = SparkSession.builder.getOrCreate()
 
-    source_data_df = spark.read.option("header", True).option("inferSchema", True).csv(source_path)
+    """
+    
+    Fix note: multiLine is now true for source_data_df, without it records to malformed downstream
+    in Azure Databricks due to multiline fields like addresses (without multiline being true these
+    end up getting made into distinct records per-line which breaks schema integrity)
+    
+    """
+
+    source_data_df = (
+        spark.read.option("header", True)
+        .option("inferSchema", True)
+        .option("multiLine", True)
+        .option("quote", '"') # how to handle quotes
+        .option("escape", '"') # how to handle doubled quotes inside quoted fields
+        .csv(source_path)
+    )
 
     bronze_df = (
         source_data_df.withColumn("_bronze_source_name", functions.lit(source_name))
