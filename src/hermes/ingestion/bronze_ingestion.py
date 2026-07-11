@@ -193,11 +193,11 @@ def _ingest_source_to_bronze_layer_spark(source_name: str, source_path: str, out
     source_data_df = spark.read.option("header", True).option("inferSchema", True).csv(source_path)
 
     bronze_df = (
-        source_data_df.withColumns("_bronze_source_name", functions.lit(source_name))
-        .withColumns("_bronze_source_file", functions.lit(source_path.rstrip("/").split("/")[-1]))
-        .withColumns("_bronze_source_path", functions.lit(source_path))
-        .withColumns("_bronze_ingested_at", functions.lit(ingestion_datetime.isoformat(())))
-        .withColumns("_bronze_ingestion_date", functions.lit(ingestion_datetime.date().isoformat()))
+        source_data_df.withColumn("_bronze_source_name", functions.lit(source_name))
+        .withColumn("_bronze_source_file", functions.lit(source_path.rstrip("/").split("/")[-1]))
+        .withColumn("_bronze_source_path", functions.lit(source_path))
+        .withColumn("_bronze_ingested_at", functions.lit(ingestion_datetime.isoformat(())))
+        .withColumn("_bronze_ingestion_date", functions.lit(ingestion_datetime.date().isoformat()))
     )
 
     bronze_table_path: str = join_uri(output_dir, source_name)
