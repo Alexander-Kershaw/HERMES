@@ -72,5 +72,5 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
 
-[tool.setuptools.package-date]
+[tool.setuptools.package-data]
 hermes = ["contracts/**/*.yml", "contracts/**/*.yaml"]

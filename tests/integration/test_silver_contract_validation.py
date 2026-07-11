@@ -3,10 +3,7 @@ from pathlib import Path
 from pyspark.sql import DataFrame, SparkSession
 
 from hermes.quality.contract_validators import ContractValidationResult, failed_records_for_column_rules, validate_table, write_validation_report
-from hermes.quality.contracts import (
-    HermesDataContract,
-    load_yaml_contract
-)
+from hermes.quality.contracts import HermesDataContract, load_yaml_contract
 from hermes.utils.spark import create_local_spark_session
 
 
