@@ -255,7 +255,7 @@ def write_ingestion_audit(results: list[BronzeIngestionMeta], audit_dir: str) ->
 
     """Azure Mode"""
     if check_if_azure_cloud_path(audit_dir):
-        from pyspark import SparkSession
+        from pyspark.sql import SparkSession
 
         spark = SparkSession.builder.getOrCreate()
         audit_output_path: str = join_uri(audit_dir, "bronze_ingestion_audit")
