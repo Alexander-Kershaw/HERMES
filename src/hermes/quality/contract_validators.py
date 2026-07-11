@@ -8,7 +8,14 @@ from pyspark.sql import DataFrame, SparkSession, functions
 
 from hermes.config.paths import join_uri
 from hermes.config.runtime import HermesRuntimeEnvironment, HermesRuntimeSettings, retrieve_hermes_runtime_settings
-from hermes.quality.contracts import HermesDataContract, HermesRelationshipsContract, load_all_yaml_contracts, load_table_relationship_yaml_contract
+from hermes.quality.contracts import (
+    HermesDataContract,
+    HermesRelationshipsContract,
+    default_relationship_contract_path,
+    default_silver_contracts_dir,
+    load_all_yaml_contracts,
+    load_table_relationship_yaml_contract,
+)
 from hermes.quality.data_quarantine import HermesQuarantineResult, write_failed_record_to_quarantine
 from hermes.utils.logging import config_logging
 from hermes.utils.paths import hermes_data_audit_dir, hermes_silver_dir
@@ -26,6 +33,8 @@ REFACTOR NOTES:
 - audit report wrtiting maintains use of Pandas only for local environment, Spark is used for Azure
 
 - Spark sessions created with the create_local_spark_session() function call, For Azure a clean spark session is built
+
+- Packaged data contracts within HERMES modules install so contracts are avaliable to Databricks
 
 =====================================================================================================================================================
 """
@@ -273,7 +282,7 @@ def validate_silver_tables(
 
     spark = _get_validation_spark_session(spark=spark)
     silver_base_path = _resolve_silver_base_path(silver_base_path=silver_base_path)
-    contract_dir = contract_dir or Path("contracts/silver")
+    contract_dir = contract_dir or default_silver_contracts_dir()
 
     contracts: dict[str, HermesDataContract] = load_all_yaml_contracts(contracts_dir=contract_dir)
     all_results: list[ContractValidationResult] = []
@@ -398,7 +407,7 @@ def validate_silver_table_relationships(
 
     spark = _get_validation_spark_session(spark=validation_spark_session)
     silver_base_path = _resolve_silver_base_path(silver_base_path=silver_base_path)
-    table_relationship_contract_path = table_relationship_contract_path or Path("contracts/silver/table_relationships/table_relationships.yml")
+    table_relationship_contract_path = table_relationship_contract_path or default_relationship_contract_path()
 
     silver_table_relationships: list[HermesRelationshipsContract] = load_table_relationship_yaml_contract(relation_contract_path=table_relationship_contract_path)
 

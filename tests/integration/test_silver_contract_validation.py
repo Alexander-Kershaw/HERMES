@@ -3,14 +3,22 @@ from pathlib import Path
 from pyspark.sql import DataFrame, SparkSession
 
 from hermes.quality.contract_validators import ContractValidationResult, failed_records_for_column_rules, validate_table, write_validation_report
-from hermes.quality.contracts import HermesDataContract, load_yaml_contract
+from hermes.quality.contracts import (
+    HermesDataContract,
+    load_yaml_contract
+)
 from hermes.utils.spark import create_local_spark_session
+
+
+def _write_contract(tmp_path: Path, file_name: str) -> Path:
+    contract_path: Path = tmp_path / file_name
+    return contract_path
 
 
 def test_validate_table_passes_for_valid_data(tmp_path: Path) -> None:
     spark = create_local_spark_session(name="test_validate_table_passes_for_valid_data")
 
-    contract_path: Path = tmp_path / "customers.yml"
+    contract_path: Path = _write_contract(tmp_path=tmp_path, file_name="customers.yml")
     contract_path.write_text(
         """
 table: customers
@@ -53,7 +61,7 @@ columns:
 def test_validate_table_fails_for_invalid_data(tmp_path: Path) -> None:
     spark: SparkSession = create_local_spark_session(name="test_validate_table_fails_for_invalid_data")
 
-    contract_path: Path = tmp_path / "customers.yml"
+    contract_path: Path = _write_contract(tmp_path=tmp_path, file_name="customers.yml")
     contract_path.write_text(
         """
 table: customers
@@ -102,7 +110,7 @@ columns:
 def test_write_validation_report(tmp_path: Path) -> None:
     spark = create_local_spark_session(name="test_write_validation_report")
 
-    contract_path: Path = tmp_path / "customers.yml"
+    contract_path: Path = _write_contract(tmp_path=tmp_path, file_name="customers.yml")
     contract_path.write_text(
         """
 table: customers
@@ -132,7 +140,7 @@ columns:
 def test_validate_table_fails_invalid_accepted_values(tmp_path: Path) -> None:
     spark = create_local_spark_session(name="test_validate_table_fails_invalid_accepted_values")
 
-    contract_path: Path = tmp_path / "orders.yml"
+    contract_path: Path = _write_contract(tmp_path=tmp_path, file_name="orders.yml")
     contract_path.write_text(
         """
 table: orders

@@ -1,0 +1,73 @@
+table: customers
+
+primary_key:
+  - customer_id
+
+columns:
+  customer_id:
+    type: string
+    rules:
+      - not_null
+      - unique
+      - regex: "^CUSTOMER-[0-9]{6}$"
+
+  first_name:
+    type: string
+    rules:
+      - not_null
+
+  last_name:
+    type: string
+    rules:
+      - not_null
+
+  email:
+    type: string
+    rules:
+      - not_null
+      - regex: "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+
+  phone_number:
+    type: string
+    rules:
+      - not_null
+
+  city:
+    type: string
+    rules:
+      - not_null
+
+  region:
+    type: string
+    rules:
+      - not_null
+
+  postal_code:
+    type: string
+    rules:
+      - not_null
+
+  address:
+    type: string
+    rules:
+      - not_null
+
+  loyalty_tier:
+    type: string
+    rules:
+      - not_null
+      - accepted_values:
+          - Bronze
+          - Silver
+          - Gold
+          - Platinum
+
+  creation_datetime:
+    type: timestamp
+    rules:
+      - not_null
+
+  is_active:
+    type: boolean
+    rules:
+      - not_null

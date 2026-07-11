@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,14 @@ class HermesRelationshipsContract:
     child_column: str
     parent_table: str
     parent_column: str
+
+
+def default_silver_contracts_dir() -> Path:
+    return Path(str(files("hermes") / "contracts" / "silver"))
+
+
+def default_relationship_contract_path() -> Path:
+    return Path(str(files("hermes") / "contracts" / "silver" / "table_relationships" / "table_relationships.yml"))
 
 
 def load_yaml_contract(contract_path: Path) -> HermesDataContract:

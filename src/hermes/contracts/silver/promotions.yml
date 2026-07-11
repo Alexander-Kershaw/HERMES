@@ -1,0 +1,31 @@
+table: promotions
+primary_key:
+  - promotion_id
+
+columns:
+  promotion_id:
+    type: string
+    rules:
+      - not_null
+      - unique
+      - regex: "^PROMO-[0-9]{4}$"
+
+  product_id:
+    type: string
+    rules:
+      - not_null
+      - regex: "^PRODUCT-[0-9]{6}$"
+
+  discount_pct:
+    type: integer
+    rules:
+      - min_value: 1
+
+  channel:
+    type: string
+    rules:
+      - not_null
+      - accepted_values:
+          - online
+          - store
+          - mobile_app
