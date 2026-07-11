@@ -489,3 +489,285 @@ Azure mode builds ADLS Gen2 paths from the `HERMES_STORAGE_ACCOUNT` environment 
 
 ---
 
+# Entry-014: Running Batch Pipeline on Azure Databricks
+
+## Summary
+
+My objective was to move the batch pipeline from a local development workflow into an Azure Databricks runtime. 
+
+In order to do this transition from local to cloud, I needed to following to run in Azure:
+
+- Ingestion of raw retail CSV source files from the ADLS landing container (the landing container already has its contents uploaded)
+- Writing of the Bronze tables to the ADLS bronze storage container
+- Leverage Spark transformations for converting raw Bronze data into curated Silver Delta tables in the Silver ADLS container
+- Apply packaged YAML data contracts for the validation of Silver tables
+- Quarantine invalid / malformed Silver records into the dedicated ADLS quarantine container
+- Write both validation and data audit reports to the ADLS audit container
+- Verify that the cloud runtine behaviour is consistant with the results of the local batch pipeline to verify Cloud reproduction of the complete batch worflow
+
+This was unmistakenly the most important section of the project so far as it represented a key deliverable I had planned: The transformation of a legacy omnichannel retail stream, to a local lakehouse prototype, into a fully cloud-deployed data engineering pipeline running on Azure Databricks.
+
+## Runtime Architecture
+
+The Azure batch pipeline uses the following infrastructure and runtime tooling choices:
+
+- For the compute layer, I am using Azure Databricks running PySpark ingestion, transformation, and data validation jobs, utillising a Spark compute cluster.
+
+- Storage is handled with ADLS Gen2 (Azure Delta Lake Storage), which stores landing, bronze, silver, quarantine, and data audit outputs.
+
+- Cloud infrastructure is managed by Terraform, allowing consistent and reproducible provisioning of Azure resources.
+
+- Secrets are handled with the Databricks Secrets Scope which serves to store service principal credentials for ADLS OAuth access.
+
+- Authentication is managed by Azure service principal, which give permissions for Databricks to perform reads/writes on the ADLS Gen2 paths.
+
+- Data transformations are handled with PySpark and Delta Lake, PySpark transformations convert Bronze data into the curated Silver Delta tables.
+
+- Data quality is managed by defined YAML contracts in conjunction with PySpark validation, for the purpose of validating data at the table column-level and table relationship level.
+
+- Auditability is encouraged with ADLS audit outputs that store ingestion and validation audits and reports.
+
+
+The ADLS container layout is as follows:
+
+- landing/
+- bronze/
+- silver/
+- gold/
+- quarantine/
+- audit/
+
+Gold is handled with dbt modelling and intends to be layered on top of the existing batch pipeline architecture and workflow.
+
+## Runtime Configuration Refactoring
+
+Before I could run anything in Azure, the pipeline needed support for both local and cloud workflows, manifesting as needing support for both local and cloud paths, without duplicating existing pipeline logic.
+
+The local pipeline prototype has the following structure:
+
+```txt
+data/sample/raw
+data/bronze
+data/silver
+data/quarantine
+data/audit
+```
+
+Whereas, in Azure, the same logic and overall architecture exists, but resolve to ABFS paths such as:
+
+```txt
+abfss://landing@<storage-account>.dfs.core.windows.net/hermes/raw
+abfss://bronze@<storage-account>.dfs.core.windows.net/hermes/bronze
+abfss://silver@<storage-account>.dfs.core.windows.net/hermes/silver
+abfss://quarantine@<storage-account>.dfs.core.windows.net/hermes/quarantine
+abfss://audit@<storage-account>.dfs.core.windows.net/hermes/audit
+```
+
+In order to support this change, divergence in logic was necessary. So, I introduced a runtime configuration layer controlled by environment variables:
+
+```bash
+HERMES_RUNTIME_ENV=azure
+HERMES_STORAGE_ACCOUNT=<storage-account-name>
+```
+
+The runtime settings resolve the approprate paths depending on if the execution environment is local or Azure. 
+
+This allowed for the same pipeline to be used for both local and Azure runtime environments. And also allowed pipeline execution in Databricks with thin runners instead of entirely new pipelines dedicated to specific cloud-based logic.
+
+The permitted sychronised local testing and deployability in Databricks without continuously copying transformation code and snippets of the pipeline into notebooks in Databricks.
+
+
+## Databricks ADLS Authentication
+
+Databricks was configured to access ADLS Gen2 using OAuth credentials stored in a Databricks secret scope.
+
+These secrets are:
+```bash
+adls-client-id
+adls-client-secret
+tenant-id
+```
+
+The notebook configures Spark with the service principal credentials stored in the secret scope:
+
+```python
+client_id = dbutils.secrets.get("hermes-dev", "adls-client-id")
+client_secret = dbutils.secrets.get("hermes-dev", "adls-client-secret")
+tenant_id = dbutils.secrets.get("hermes-dev", "tenant-id")
+
+account_fqdn = f"{storage_account}.dfs.core.windows.net"
+
+spark.conf.set(f"fs.azure.account.auth.type.{account_fqdn}", "OAuth")
+spark.conf.set(
+    f"fs.azure.account.oauth.provider.type.{account_fqdn}",
+    "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
+)
+spark.conf.set(f"fs.azure.account.oauth2.client.id.{account_fqdn}", client_id)
+spark.conf.set(f"fs.azure.account.oauth2.client.secret.{account_fqdn}", client_secret)
+spark.conf.set(
+    f"fs.azure.account.oauth2.client.endpoint.{account_fqdn}",
+    f"https://login.microsoftonline.com/{tenant_id}/oauth2/token",
+)
+```
+
+## Batch Pipeline Execution
+
+The Databricks notebooks executes the individual parts of the pipeline in sequence using the packaged pipeline functions cloned from the HERMES GitHub Repo:
+
+```python
+from hermes.ingestion.bronze_ingestion import (
+    BronzeIngestionMeta,
+    full_source_ingestion_to_bronze,
+)
+from hermes.transforms.bronze_silver_transform import transform_all_bronze_to_silver
+from hermes.quality.contract_validators import (
+    validate_silver_table_relationships,
+    validate_silver_tables,
+)
+
+bronze_ingestion_results: list[BronzeIngestionMeta] = full_source_ingestion_to_bronze()
+
+silver_results = transform_all_bronze_to_silver(spark=spark)
+
+validation_results = validate_silver_tables(spark=spark)
+
+relationship_results = validate_silver_table_relationships(
+    validation_spark_session=spark
+)
+```
+
+The pipeline execution was successful, verifying the pipeline can run in Azure Databricks with ADLS storage.
+
+## Issues Encountered
+
+### Databricks Ran the Pipeline in Local mode instead of Azure mode
+
+The first Databricks pipeline execution attempt erroneously used local paths instead of ADLS paths.
+
+The HERMES runtime environment variables were not set inside the Databricks Python process after package installation and restarting the notebook.
+
+Specifically the package required:
+
+```python
+os.environ["HERMES_RUNTIME_ENV"] = "azure"
+os.environ["HERMES_STORAGE_ACCOUNT"] = storage_account
+```
+
+The resolution here was to set environment variables after every package installation/respart since with restarts using `pip install` clears the session variables.
+
+So this solution was implemented:
+
+```python
+import os
+
+storage_account = "<storage-account-name>"
+
+os.environ["HERMES_RUNTIME_ENV"] = "azure"
+os.environ["HERMES_STORAGE_ACCOUNT"] = storage_account
+```
+
+### Stale Packages Installed in Databricks
+
+After local fixes to the pipeline were made, Databricks persisted in throwing errors originating from old code because Databricks was running on the previously installed version of the HERMES package.
+
+To resolve this I introduced using force reinstallation from GitHub after each code fix with:
+
+```python
+%pip install --force-reinstall git+https://github.com/<username>/<repo>.git
+dbutils.library.restartPython()
+```
+
+After each restart, runtime variables and the Spark OAuth configuration were rerun.
+
+### Syntax Error Resolutions
+
+- Bronze ingestion failed due to incorrect PySpark syntax using `withColumns` instead of `withColumn` when adding metadata fields to the bronze tables. Resolved this by correcting syntax.
+
+- Bronze ingestion also failed with a timestamp formatting bug where `isoformat()` was malformed like `isoformat(())`, resolved with correcting syntax.
+
+- Bronze audit writing failed due to an incorrect SparkSession import. Accidentally used just `spark` instead of `spark.sql` for importing SparkSession. Correcting the import resolved the issue.
+
+- Incorrect pattern: `functions(column_name)` corrected to `functions.col(column_name)`
+
+### YAML Contracts Missing in Databricks
+
+Silver validation failed because the contract directory storing the YAML data contracts did not exist in Databricks yet.
+
+Because the YAML data contracts were stored outside the HERMES Python package. When HERMES was installed into Databricks using `pip install` only the package files were avaliable, and none of the data contracts were present. 
+
+To resolve this I copied the contracts into the HERMES package:
+
+```txt
+src/hermes/contracts/silver/
+```
+
+The package configuration was updated to include all the data contract YAML files:
+
+```toml
+[tool.setuptools.package-data]
+hermes = ["contracts/**/*.yml", "contracts/**/*.yaml"]
+```
+
+For the contracts from within the package to be used, the contract loader was updated to use `importlib.resource.files`:
+
+```python
+from importlib.resources import files
+from pathlib import Path
+
+
+def default_silver_contracts_dir() -> Path:
+    return Path(str(files("hermes") / "contracts" / "silver"))
+
+
+def default_relationship_contract_path() -> Path:
+    return Path(
+        str(
+            files("hermes")
+            / "contracts"
+            / "silver"
+            / "table_relationships"
+            / "table_relationships.yml"
+        )
+    )
+```
+
+This exposed the fact that data contracts should be inherently included as part of the pipeline logic, and are not just lakehouse data. They should be version controlled and packaged with code, rather than copied into ADLS as runtime data files.
+
+### Customers Table Malformation After Azure Ingestion
+
+The pipeline ran fully, however the Silver validation results showed a large number of customer records being quarantined, containing thousands of malformed rows. The customer row count was also unexpectetly inflated, indicating somehow additional data was being added for no reason.
+
+The cause of this was that the Customers CSV file contained multiline address fields as produced by the Python Faker library which spanned over multiple lines inside a quoted CSV field.
+
+By default, Spark CSV reading does not enable multiline parsing. Without the multiline support, Spark interpreted the address line breaks as completely new records which ended up splitting a single customer row into multiple malformed rows.
+
+This caused all the downstream data to also be malformed, triggering the massive instance of data quarantine in the pipeline run.
+
+To resolve this, multiline support needed to be added, as well as extra care for quotation within CSV fields:
+
+```python
+source_data_df = (
+    spark.read.option("header", True)
+    .option("inferSchema", True)
+    .option("multiLine", True)
+    .option("quote", '"')
+    .option("escape", '"')
+    .csv(source_path)
+)
+```
+
+After adding the multiline support, the pipeline re-run was successful and all the bronze and silver tables formed correctly, no quarantine was triggered as expected.
+
+
+---
+
+
+
+
+
+
+
+
+
+---
+
