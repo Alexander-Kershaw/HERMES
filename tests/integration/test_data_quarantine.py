@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from hermes.quality.data_quarantine import write_failed_record_to_quarantine
+from hermes.quality.data_quarantine import HermesQuarantineResult, write_failed_record_to_quarantine
 from hermes.utils.spark import create_local_spark_session
 
 
-def test_write_failed_records_to_quarantine(tmp_path: Path) -> None:
+def test_write_failed_records_to_quarantine_local(tmp_path: Path) -> None:
     spark = create_local_spark_session("test_write_failed_records_to_quarantine")
 
     failed_records = spark.createDataFrame(
@@ -16,17 +16,17 @@ def test_write_failed_records_to_quarantine(tmp_path: Path) -> None:
         ]
     )
 
-    result = write_failed_record_to_quarantine(
+    result: HermesQuarantineResult = write_failed_record_to_quarantine(
         failed_records=failed_records,
         table_name="orders",
         column_name="channel",
         rule_name="accepted_values",
         failure_reason="Invalid channel",
-        base_quarantine_dir=tmp_path,
+        base_quarantine_path=tmp_path,
     )
 
     assert result.row_count == 1
-    assert result.quarantine_path.exists()
+    assert Path(result.quarantine_path).exists()
 
     quarantined_df = spark.read.parquet(str(result.quarantine_path))
 

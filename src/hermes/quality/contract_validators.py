@@ -266,10 +266,7 @@ def write_validation_report(results: list[ContractValidationResult], output_dir:
 
 
 def validate_silver_tables(
-    spark: SparkSession | None = None,
-    silver_base_path: str | Path | None = None,
-    contract_dir: Path | None = None,
-    report_dir: str | Path | None = None
+    spark: SparkSession | None = None, silver_base_path: str | Path | None = None, contract_dir: Path | None = None, report_dir: str | Path | None = None
 ) -> list[ContractValidationResult]:
 
     config_logging()
@@ -282,7 +279,7 @@ def validate_silver_tables(
     all_results: list[ContractValidationResult] = []
 
     for table_name, contract in contracts.items():
-        table_path: str= resolve_silver_table_path(silver_base_path=silver_base_path, table_name=table_name)
+        table_path: str = resolve_silver_table_path(silver_base_path=silver_base_path, table_name=table_name)
         _validate_local_path_exists(path=table_path, label="Silver Table")
 
         logger.info(f"Validating Silver table: {table_name}")
