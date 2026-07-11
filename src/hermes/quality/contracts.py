@@ -46,7 +46,15 @@ def load_yaml_contract(contract_path: Path) -> HermesDataContract:
         raise FileNotFoundError(f"YAML data contract not found at: {contract_path}")
 
     with contract_path.open("r", encoding="utf-8") as yaml_contract:
-        loaded_yaml_contract = yaml.safe_load(yaml_contract)
+        loaded_yaml_contract = yaml.safe_load(stream=yaml_contract)
+
+    required_keys: set[str] = {"table", "columns"}
+    missing_keys: set[str] = required_keys - set(loaded_yaml_contract)
+
+    if missing_keys:
+        raise ValueError(
+            f"Invalid data contract at {contract_path}. Missing keys: {sorted(missing_keys)}"
+    )
 
     data_contract = HermesDataContract(
         table=loaded_yaml_contract["table"], primary_key=loaded_yaml_contract.get("primary_key", []), columns=loaded_yaml_contract.get("columns", {}), contract_path=contract_path
@@ -62,10 +70,16 @@ def load_all_yaml_contracts(contracts_dir: Path) -> dict[str, HermesDataContract
 
     """
 
-    all_data_contracts = {}
+    all_data_contracts: dict = {}
 
     for single_yaml_contract_path in sorted(contracts_dir.glob("*yml")):
-        contract = load_yaml_contract(single_yaml_contract_path)
+        loaded_yaml_contract = yaml.safe_load(stream=single_yaml_contract_path.read_text(encoding="utf-8"))
+
+        # If table not in yaml contract then continue to next table
+        if "table" not in loaded_yaml_contract:
+            continue
+
+        contract: HermesDataContract= load_yaml_contract(contract_path=single_yaml_contract_path)
         all_data_contracts[contract.table] = contract
 
     return all_data_contracts
@@ -80,7 +94,7 @@ def load_table_relationship_yaml_contract(relation_contract_path: Path) -> list[
 
     table_relationships = relation_contract.get("relationships", [])
 
-    table_relationship_obj = [
+    table_relationship_obj: list[HermesRelationshipsContract] = [
         HermesRelationshipsContract(
             table_relationship_name=table_relationship["name"],
             child_table=table_relationship["child_table"],
