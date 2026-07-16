@@ -761,12 +761,143 @@ After adding the multiline support, the pipeline re-run was successful and all t
 
 ---
 
+# Entry-015: Silver Delta Table Registration With Unity Catalog
+
+I completed the registration of Silver Delta tables in Databricks so that they can be queried as logical tables and used as dbt sources for the intended Gold layer.
+
+The Azure Databricks batch pipeline has already been successfully run, therefore the Silver data already existed physically in ADLS Gen2 as Delta tables.
+
+However, it is not effective for dbt to model directly against raw ADLS paths such as:
+
+```bash
+abfss://silver@<storage-account>.dfs.core.windows.net/hermes/silver/customers
+abfss://silver@<storage-account>.dfs.core.windows.net/hermes/silver/orders
+abfss://silver@<storage-account>.dfs.core.windows.net/hermes/silver/order_items
+```
+
+Instead, by registing logical tables, dbt can read from logical database objects:
+
+```
+dbw_hermes_dev_9s5nbox.silver.customers
+dbw_hermes_dev_9s5nbox.silver.orders
+dbw_hermes_dev_9s5nbox.silver.order_items
+
+```
+
+Therefore, this part of the project has been focused on creating a governed table layer between the physical lakehouse storage and the intended analytics engineering layer.
+
+### The Necessity of Silver Registration
+
+Although the batch pipeline writes Silver data as Delta tables in ADLS, this is not enough for downstream SQL modelling.
+
+Without effective table registration, the downstream SQL logic will have to now the physical ADLS storage paths:
+
+```sql
+SELECT *
+FROM delta.`abfss://silver@<storage-account>.dfs.core.windows.net/hermes/silver/customers;
+```
+
+Instead of so tightly coupling the analytics logic with the underlying storage layout, I decided to expose the Silver layer through Unity Catalog tables which look more like this:
+
+```sql
+SELECT *
+FROM dbw_hermes_dev_9s5nbox.silver.customers
+```
+
+The benefits of this approach are as followes:
+
+- dbt can define sources using catalog/schema/table names instead of verbose explicty storage paths
+
+- The physical ADLS paths are hidden from the Gold model SQL
+
+- Databricks permissions can be applied to catalog, schema, tables, and external locations (physical storage paths)
+
+- The neater structure reflects a more authentic lakehouse data governance expectation and patterns
+
+- The silver layer is easier to insepct, document, test, and query
 
 
+Overall, this is a pretty authentic, well-governed, and logical step that bridges the gap between data engineering and analytics engineering for this project.
 
 
+### Implementation And Issues Encountered
 
+The implementation was executed using a Databricks Notebook with cells executed sequentially covering the following:
 
+- Configuring the storage account
+- Configuring the ADLS OAuth access in Spark
+- Defining the Silver base path
+- Creating the schemas
+- Looping over the Silver tables names
+- Registering each Silver Delta location as a table
+- Verifying silver tables and row counts
+
+#### Issue 1: Unity Catalog External Locations
+
+Initially table registration failed because the Databricks workspace was using Unity Catalog governance by default. Although the notebook spark OAuth allowed Spark to read and write ADLS paths, the Unity catalog table registration had an additional governence requirement that the cloud storage path must be covered by a Unity Catalog external location.
+
+To resolve this I created and used Unity External locations. The required governance follows this chain:
+
+- Azure Databricks Access Connector
+- Managed Identity with ADLS permissions
+- Unity Catalog storage credential
+- Unity Catalog external location definition
+- External Delta table registration
+
+So it's worth noting in future that the notebook-level spark credentials and the unity catalog storage governance are seperate layers and need addressing individually.
+
+It's also worth noting that existing Unity Catalogs can exist by default in Databricks. This is checked using:
+
+```sql
+SELECT current_catalog(), current_schema();
+```
+
+Which in my case, returned:
+
+```txt
+current_catalog() = dbw_hermes_dev_9s5nbox
+current_schema()  = default
+```
+
+So the workspace was already using a viable Unity Catalog catalog. Ultimately, rather than creating an entirely new catalog, I just used the existing workspace catalog and created the dedicated schemas inside of it:
+
+```txt
+dbw_hermes_dev_9s5nbox.silver
+dbw_hermes_dev_9s5nbox.gold
+```
+
+Then I set up the Unity Catalog external locations. I created an external location over the silver and gold cloud paths to expose Silver to dbt source, and gold for the curated data marts from dbt.
+
+The external connects connects the ADLS paths to a Unity Catalog Storage credential which is backed by an Azure managed identity which authorises external table creation against the silver delta paths.
+
+### File Events Warning
+
+During the creation of the Unity Catalog external locations, I got a warning from Databricks:
+
+```txt
+File Events Permissions Not Verified
+
+Your storage credential can read and write to this location, but file events permissions could not be verified.
+File events are optional but recommended; they improve ingestion performance and reduce cloud storage listing costs.
+```
+
+I found that this was because the storage credential had enough permission to read and write to the ADLS paths. However, Databricks could not verify or provision the additional cloud resources used for files events.
+
+File events are more useful for event-driven data ingestion such as an Auto Loader as they reduce the need for repeated directory listing. 
+
+However, since I am currently working on controlled batch jobs over known input and output paths, the current batch workflow does not rely on file event notifications.
+
+Therefore, the external location was forcefully created for now. In future, when I implement the streaming side of the project, then File Events are more significant. For streaming and Auto Loader ingestion, the access connector managed identity will be granted some additional Azure permissions required for file events. 
+
+### Table Verification
+
+After the silver tables were registered I verified them using Databricks SQL. All the expected tables with the expect row counts were present, and with direct inspection of table samples, everything seemed in order. Table metadata also showed that the location of the table pointed to the correct ADLS silver delta paths.
+
+### Outcome
+
+Now that the Silver Delta tables are registered with Unity Catalog, the silver layer can now be queried through more logical table names, and the project is better governed.
+
+This matter for dbt, as it works best when sources are declared as database objects rather than physical file paths.
 
 
 ---
