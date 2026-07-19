@@ -25,12 +25,10 @@ models:
   hermes:
     staging:
       +materialized: view
-      +schema: silver_staging
 
     intermediate:
       +materialized: view
-      +schema: gold_intermediate
+      +schema: intermediate
     
     marts:
       +materialized: table
-      +schema: gold

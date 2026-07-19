@@ -5,8 +5,9 @@ SELECT
     discount_pct,
     start_date,
     end_date,
-    channel,
+    LOWER(TRIM(channel)) AS channel,
     is_active,
     _silver_processed_at,
     _silver_processing_date
 FROM {{ source('silver', 'promotions') }}
+

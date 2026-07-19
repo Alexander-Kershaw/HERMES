@@ -1,11 +1,11 @@
 SELECT  
-    {{ dbt.utils.generate_surrogate_key(['store_id']) }} AS store_key,
+    {{ dbt_utils.generate_surrogate_key(['store_id']) }} AS store_key,
     store_id,
     store_name,
     city,
     region,
     postal_code,
     store_format,
-    opened_date,
+    opening_date,
     is_active
-FROM {{ REF('stg_stores') }}
+FROM {{ ref('stg_stores') }}

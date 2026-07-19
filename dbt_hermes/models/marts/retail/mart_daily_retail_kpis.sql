@@ -1,5 +1,5 @@
 WITH sales AS (
-    SELECT * FROM {{ REF('fct_sales') }}
+    SELECT * FROM {{ ref('fct_sales') }}
 )
 
 SELECT 

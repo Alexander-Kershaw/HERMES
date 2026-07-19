@@ -2,9 +2,9 @@ version: 2
 
 sources:
   - name: silver
-    description: "Trusted / validated silver delta tables produced from the bronze to silver PySpark transformation and validation layer"
-    database: "{{ var('silver_catalog', 'target.database') }}"
-    schema: "{{ var('silver_schema', 'silver') }}"
+    description: "Unity Catalog registered silver tables"
+    database: dbw_hermes_dev_9s5nbox
+    schema: silver
 
     tables:
       - name: customers

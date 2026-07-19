@@ -12,7 +12,7 @@ SELECT
     net_amount,
     tax_amount,
     payment_method,
-    create_by_system,
+    created_by_system,
     source_file_date,
     customer_note,
     _silver_processed_at,

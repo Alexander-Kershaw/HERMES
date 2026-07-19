@@ -10,4 +10,4 @@ SELECT
     cost_price,
     is_active,
     creation_datetime
-FROM {{ REF('stg_products') }}
+FROM {{ ref('stg_products') }}

@@ -1,9 +1,9 @@
 SELECT 
-    {{ dbt.utils.generate_surrogate_key(['inventory_snapshot_id']) }} AS inventory_snapshot_key,
+    {{ dbt_utils.generate_surrogate_key(['inventory_snapshot_id']) }} AS inventory_snapshot_key,
     inventory_snapshot_id,
     snapshot_date,
-    store_id,
     store_name,
+    store_id,
     store_city,
     store_region,
     store_format,
@@ -18,4 +18,4 @@ SELECT
     is_below_reorder_point,
     stock_retail_value,
     stock_cost_value
-FROM {{ REF('int_inventory_position') }}
+FROM {{ ref('int_inventory_position') }}

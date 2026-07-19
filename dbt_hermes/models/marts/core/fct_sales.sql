@@ -22,4 +22,4 @@ SELECT
     tax_amount,
     estimated_cost_amount,
     estimated_margin_amount
-FROM {{ REF('int_order_revenue') }}
+FROM {{ ref('int_order_revenue') }}

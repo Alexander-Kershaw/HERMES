@@ -1,5 +1,5 @@
 WITH promotion_attribution AS (
-    SELECT * FROM {{ REF('int_promotion_attribution') }}
+    SELECT * FROM {{ ref('int_promotion_attribution') }}
 )
 
 SELECT 

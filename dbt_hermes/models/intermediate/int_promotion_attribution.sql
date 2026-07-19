@@ -1,9 +1,9 @@
 WITH promotions AS (
-    SELECT * FROM {{ REF('stg_promotions')}}
+    SELECT * FROM {{ ref('stg_promotions')}}
 ),
 
 order_revenue AS (
-    SELECT * FROM {{ REF('int_order_revenue') }}
+    SELECT * FROM {{ ref('int_order_revenue') }}
 )
 
 SELECT

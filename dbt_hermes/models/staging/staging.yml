@@ -255,4 +255,4 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ["online", "store", "all"]
+                values: ["online", "store", "mobile_app"]

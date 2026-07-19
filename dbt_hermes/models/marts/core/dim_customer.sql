@@ -1,5 +1,5 @@
 SELECT  
-    {{ dbt.utils.generate_surrogate_key(['customer_id']) }} AS customer_key,
+    {{ dbt_utils.generate_surrogate_key(['customer_id']) }} AS customer_key,
     customer_id,
     first_name,
     last_name,
@@ -12,4 +12,4 @@ SELECT
     loyalty_tier,
     creation_datetime,
     is_active
-FROM {{ REF('stg_customers') }}
+FROM {{ ref('stg_customers') }}

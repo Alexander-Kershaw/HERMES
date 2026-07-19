@@ -902,3 +902,217 @@ This matter for dbt, as it works best when sources are declared as database obje
 
 ---
 
+# Entry-016: Gold Layer with dbt / Azure Databricks
+
+The final stretch of the Hermes batch pipeline deployment was building the Gold analytics layer using dbt on Azure Databricks.
+
+This involved connecting my local dbt staging models, dimensional models, gold marts and test definitions to Azure Databricks.
+
+Before beginning the dbt Gold layer work, the silver delta tables had already been registered in Unity Catalog as the following:
+
+```txt
+dbw_hermes_dev_9s5nbox.silver.customers
+dbw_hermes_dev_9s5nbox.silver.stores
+dbw_hermes_dev_9s5nbox.silver.products
+dbw_hermes_dev_9s5nbox.silver.orders
+dbw_hermes_dev_9s5nbox.silver.order_items
+dbw_hermes_dev_9s5nbox.silver.inventory_snapshots
+dbw_hermes_dev_9s5nbox.silver.promotions
+```
+
+These registered tables are the governed source layer for dbt, and the gold target schema was defined as `dbw_hermes_dev_9s5nbox.gold`, and was the intended output of the models (stagining viewss, dimensions, facts, intermediate models. and retail marts) created by dbt.
+
+### dbt Databricks Connection Setup
+
+Initially, I had to configure dbt so that it could connect to my Azure Databricks workspace. The generic pattern used for the dbt profile configuring was like the following:
+
+```yaml
+hermes:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      catalog: dbw_hermes_dev_9s5nbox
+      schema: gold
+      host: adb-7405606138336902.2.azuredatabricks.net
+      http_path: /sql/protocolv1/o/7405606138336902/<cluster-http-path>
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      threads: 4
+```
+
+The token was not hardcoded and injected as an environment variable. The type and host just define the Databricks connection, with host being the Azure Databricks workspace address. The http path references the particular Spark compute cluster I intended to use for the dbt gold transformations, I just used the http path for the basic and cheap cluster I made for the Hermes project.
+
+The connection was validated with `dbt debug` and passed.
+
+### dbt Source Configuration
+
+The silver unity catalog tables were declared as the dbt sources. I defined the source YAML so it pointed dbt at the governed Silver scheme existing the the Databricks workspace:
+
+```yaml
+version: 2
+
+sources:
+  - name: hermes_silver
+    database: dbw_hermes_dev_9s5nbox
+    schema: silver
+    description: 
+    tables:
+      - name: customers
+      - name: stores
+      - name: products
+      - name: orders
+      - name: order_items
+      - name: inventory_snapshots
+      - name: promotions
+```
+
+By doing this, I had allowed the dbt staging models to reference the governed silver tables with `{{ source('hermes_silver', 'orders') }}` for example which is much neater than referenceing the ADLS Gen2 paths and more proper dbt usage.
+
+
+### Important dbt Dependencies
+
+I found it was important to make sure the necessary dbt dependencies are installed, especially with more modern syntax changes. The existing gold models and test used package macros from `dbt_utils` and `dbt_expectations`, I made sure there were in the `packages.yml`:
+
+```yaml
+packages:
+  - package: dbt-labs/dbt_utils
+    version: 1.3.0
+
+  - package: calogica/dbt_expectations
+    version: 0.10.9
+```
+
+Dependencies were installed with `dbt deps`.
+
+
+### Corrections to dbt Syntax
+
+Initial dbt runs failed due to some syntax errors that needed correcting:
+
+- Instances of `dbt.utils` were corrected to `dbt_utils`
+- Instances of `REF` were corrected to `ref` as these are case sensitive
+
+During initial runs I had an issue of running a downstream model without parents. Models have upstream dependencies that must run before the downstream models. So when running individual dbt models this must be kept in mind in future.
+
+For example running `dbt run --select dim_product` the product dimensions table requires running its upstream dependency which is done with `dbt run --select +dim_product` which runs the staging model for product `stg_product` and then the dimension model `dim_product`.
+
+### Schema Name Issue
+
+I noticed that dbt was creating or looking for schemas such as `gold_gold` or `gold_silver_staging` resulting in outputs like `gold_gold.dim_product`.
+
+This was unwanted and caused by default dbt custom schema behaviour the concatentates the target schema with the custom schema names.
+
+Since the profile target schema was `schema: gold`, and the model was configured with `+schema: gold`, then dbt resolves the final schema name as `gold_gold`.
+
+To resolve this the custom schema configuration was simplified so the dbt project allows the profile target schema to control the dbt output model:
+
+```yaml
+models:
+  hermes:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
+```
+
+With the profile target schema set to `schema: gold` the model now build just `gold` as the schema and not the unusual composite names.
+
+So, note in future that the defualt dbt schema generation can produce unexpected names if there are custom schemas layered on top of target schemas.
+
+### Addressing Schema Drift
+
+Running dbt on a full refresh `dbt run --full-refresh` came up with failures indicating schema drift. This was due to some missing column definitions and incorrect spellings / mismatches between staging, sources, dimensions, intermediate models, and the gold marts. 
+
+Synchronising the column names and references between models resolved this issue.
+
+Another issue was after the successful building of the dbt gold models, using `dbt test` one test remained failing. This test was for checking the acceptecd values for the promotions channel field.
+
+I resolved this by updating the staging model logic so that the accepted values mirrored that generated retial promotions data.
+
+After this other minor correction, all dbt tests passed.
+
+
+### The Gold Models Built
+
+After the resolution of the issues described above, the gold later was successfully built producing the following:
+
+**Staging Views*
+```txt
+stg_customers
+stg_stores
+stg_products
+stg_orders
+stg_order_items
+stg_inventory_snapshots
+stg_promotions
+```
+
+**Core Gold Models**
+```txt
+dim_customer
+dim_product
+dim_stores
+fct_sales
+fct_inventory_snapshot
+```
+
+**Intermediate Models**
+```txt
+int_order_revenue
+int_inventory_position
+int_promotion_attribution
+```
+
+**Retail KPI Marts**
+```txt
+mart_daily_retail_kpis
+mart_promotion_performance
+```
+
+### dbt Testing
+
+The dbt tests covered a lot of the same quality checks as done within the silver validation layer:
+
+```txt
+not_null tests
+unique tests
+relationships tests
+accepted_values tests
+dbt_expectations regex tests
+```
+
+This may be considered a little overboard as realistically after silver validation a lot of these data quality issues are likely to be caught. Although having another test layer serves to further protect the pipeline structurally and from a business intelligence standpoint.
+
+### Note on Gold Storage
+
+The silver layer is stored as external Delta tables in ADLS Gen2 and registered in Unity Catalog.
+
+Whereas, the Gold dbt models are currently materialised as Unity Catalog managed tables under `dbw_hermes_dev_9s5nbox.gold` which means that the gold tables are visible and queryable in the Databricks Unity Catalog, but do not appear as files within the ADLS gold container.
+
+A future enhacement to the project will be to materialise Gold as external Delta tables in ADLS gold container for a full physical medallion lakehouse architecture. However, gold being queryable is acceptable before moving to the streaming aspects of Hermes that will be developed soon.
+
+### Final Batch Pipeline Architecture
+
+At this point in development, the Hermes batch lakehouse pipeline is:
+
+- ADLS landing
+- Databricks bronze ingestion
+- ADLS Bronze
+- Databricks silver transformations
+- ADLS silver delta tables
+- Silver data contracts, quarantine and audit
+- Unity Catalog silver registration to external tables
+- dbt staging views
+- dbt gold dimensions, facts, and gold marts
+- dbt tests
+
+This is a complete batch medallion lakehouse implementation on Azure Databricks
+
+Next is working on the streaming aspects of Hermes that will definitely add to the complexity of these works.
+
+---
+
+
+
+
+

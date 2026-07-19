@@ -1,19 +1,20 @@
 WITH inventory AS (
-    SELECT * FROM {{ REF('stg_inventory_snapshots') }}
+    SELECT * FROM {{ ref('stg_inventory_snapshots') }}
 ),
 
 products AS (
-    SELECT * FROM {{ REF('stg_products') }}
+    SELECT * FROM {{ ref('stg_products') }}
 ),
 
 stores AS (
-    SELECT * FROM {{ REF('stg_stores') }}
+    SELECT * FROM {{ ref('stg_stores') }}
 )
 
 SELECT 
     inventory.inventory_snapshot_id,
     inventory.snapshot_date,
     inventory.store_id,
+    stores.store_name AS store_name,
     stores.city AS store_city,
     stores.region AS store_region,
     stores.store_format,
@@ -27,7 +28,7 @@ SELECT
     inventory.is_stockout,
     inventory.is_below_reorder_point,
     inventory.stock_on_hand * products.unit_price AS stock_retail_value,
-    inventory.stock_on_hand * products.cost_proce AS stock_cost_value
+    inventory.stock_on_hand * products.cost_price AS stock_cost_value
 FROM inventory
 LEFT JOIN stores
     ON inventory.store_id = stores.store_id
